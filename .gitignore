@@ -23,3 +23,5 @@
 **/*.i
 **/*.sr
 **/*.map
+*.node0
+*.DS_STORE
