@@ -6,6 +6,9 @@ WORKDIR /
 
 RUN apt-get update
 RUN apt-get upgrade -y
+RUN apt install qtcreator
+
+RUN qtcreator qtbase5-dev qt5-make
 
 RUN apt-get install -y \
 	aptitude \
@@ -28,7 +31,7 @@ RUN rm -rf /f-of-e-tools/tools/icestorm
 RUN apt-get install -y \
 	libboost-all-dev
 
-RUN cd /f-of-e-tools/tools/nextpnr && cmake -DARCH=ice40 -DBUILD_GUI=OFF -DBUILD_PYTHON=OFF -DBUILD_HEAP=OFF .
+RUN cd /f-of-e-tools/tools/nextpnr && cmake -DARCH=ice40 -DBUILD_GUI=ON -DBUILD_PYTHON=OFF -DBUILD_HEAP=OFF .
 RUN cd /f-of-e-tools/tools/nextpnr && make
 RUN cd /f-of-e-tools/tools/nextpnr && make install
 RUN rm -rf /f-of-e-tools/tools/nextpnr

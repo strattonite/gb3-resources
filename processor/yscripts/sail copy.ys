@@ -1,0 +1,5 @@
+read_verilog verilog/adder.v
+
+synth_ice40 -noflatten -blif sail.blif
+
+write_json sail.json

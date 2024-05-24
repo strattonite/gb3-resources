@@ -42,17 +42,28 @@
 
 
 
-module instruction_memory(addr, out);
+module instruction_memory(addr, out, clk,  clk_stall);
 	input [31:0]		addr;
+	input clk;
 	output [31:0]		out;
+	output reg 			clk_stall;
 
 	/*
 	 *	Size the instruction memory.
 	 *
 	 *	(Bad practice: The constant should be a `define).
 	 */
-	reg [31:0]		instruction_memory[0:2**12-1];
+	 
+	reg [31:0]		instruction_memory[0:2**10-1];
+	reg[31:0] 		previous_addr;
+	reg [31:0]		read_data;
 
+	integer state = 0;
+	
+	parameter		IDLE = 0;
+	parameter		READ_BUFFER = 1;
+	parameter		READ = 2;
+	
 	/*
 	 *	According to the "iCE40 SPRAM Usage Guide" (TN1314 Version 1.0), page 5:
 	 *
@@ -73,6 +84,32 @@ module instruction_memory(addr, out);
 		 */
 		$readmemh("verilog/program.hex",instruction_memory);
 	end
-
-	assign out = instruction_memory[addr >> 2];
+	
+	
+	always @(posedge clk) begin
+		/* TODO  
+		test state machine*/
+		case (state)
+			IDLE: begin
+				if (addr != previous_addr) begin
+					state <= READ_BUFFER;
+					clk_stall <= 1;
+					previous_addr <= addr;
+				end
+			end
+			READ_BUFFER: begin
+				state <= READ;
+			end
+			READ: begin
+				state <= IDLE;
+				read_data <= instruction_memory[addr >> 2];
+				clk_stall <= 0;
+			end
+		endcase
+	end
+	
+	
+	assign out = read_data;
+	
+	
 endmodule

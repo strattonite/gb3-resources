@@ -104,6 +104,7 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	 *	(Bad practice: The constant for the size should be a `define).
 	 */
 	reg [31:0]		data_block[0:1023];
+	// reg [31:0]		data_block[0:511];
 
 	/*
 	 *	wire assignments

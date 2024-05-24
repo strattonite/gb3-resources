@@ -44,7 +44,7 @@
 
 
 
-module program_counter(inAddr, outAddr, clk);
+module program_counter(inAddr, outAddr, clk); // sets output address equal to input address;
 	input			clk;
 	input [31:0]		inAddr;
 	output reg[31:0]	outAddr;
