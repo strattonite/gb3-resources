@@ -23,5 +23,5 @@
 **/*.i
 **/*.sr
 **/*.map
-
-bubblesort/simlog.node0
+*.node0
+*.DS_STORE
