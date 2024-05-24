@@ -61,8 +61,8 @@ module cpu(
 	/*
 	 *	instruction memory input
 	 */
-	output [31:0]		inst_mem_in;
-	input [31:0]		inst_mem_out;
+	output [31:0]		inst_mem_in; // address memory instruction wanted next
+	input [31:0]		inst_mem_out; // actual memory instruction for fetched this cycle
 
 	/*
 	 *	Data Memory
@@ -87,8 +87,8 @@ module cpu(
 	/*
 	 *	Pipeline Registers
 	 */
-	wire [63:0]		if_id_out;
-	wire [177:0]		id_ex_out;
+	wire [63:0]		if_id_out; // output of fetch/decode pipeline register
+	wire [177:0]		id_ex_out; // output of execute pipeline register
 	wire [154:0]		ex_mem_out;
 	wire [116:0]		mem_wb_out;
 
@@ -112,7 +112,7 @@ module cpu(
 	/*
 	 *	Decode stage
 	 */
-	wire [31:0]		cont_mux_out; //control signal mux
+	wire [31:0]		cont_mux_out; // output of control signal mux. either contains stall or instruction
 	wire [31:0]		regA_out;
 	wire [31:0]		regB_out;
 	wire [31:0]		imm_out;
@@ -130,10 +130,10 @@ module cpu(
 	wire [31:0]		addr_adder_mux_out;
 	wire [31:0]		alu_mux_out;
 	wire [31:0]		addr_adder_sum;
-	wire [6:0]		alu_ctl;
+	wire [6:0]		alu_ctl; // alu control signal
 	wire			alu_branch_enable;
-	wire [31:0]		alu_result;
-	wire [31:0]		lui_result;
+	wire [31:0]		alu_result; // output from alu
+	wire [31:0]		lui_result; // address to write to
 
 	/*
 	 *	Memory access stage
@@ -154,7 +154,7 @@ module cpu(
 	wire [31:0]		mem_fwd1_mux_out;
 	wire [31:0]		mem_fwd2_mux_out;
 	wire [31:0]		wb_fwd1_mux_out;
-	wire [31:0]		wb_fwd2_mux_out;
+	wire [31:0]		wb_fwd2_mux_out; // data to be written
 	wire			mfwd1;
 	wire			mfwd2;
 	wire			wfwd1;
@@ -165,7 +165,7 @@ module cpu(
 	 */
 	wire [31:0]		pc_adder_out;
 	wire [31:0]		branch_predictor_addr;
-	wire			predict;
+	wire			predict; // whether branch prediction used or not for this cycle
 	wire [31:0]		branch_predictor_mux_out;
 	wire			actual_branch_decision;
 	wire			mistake_trigger;
@@ -175,47 +175,49 @@ module cpu(
 	/*
 	 *	Instruction Fetch Stage
 	 */
+
+
 	mux2to1 pc_mux(
 			.input0(pc_mux0),
 			.input1(ex_mem_out[72:41]),
 			.select(pcsrc),
 			.out(pc_in)
-		);
+		); // TODO works out the next instruction to be fetched?? what is pc_in
 
 	adder pc_adder(
 			.input1(32'b100),
 			.input2(pc_out),
 			.out(pc_adder_out)
-		);
+		); // increments pc_out by 4 - because every instruction if 4 bytes long
 
 	program_counter PC(
 			.inAddr(pc_in),
 			.outAddr(pc_out),
 			.clk(clk)
-		);
+		); // instantiates program counter - every clock sets pc_out = pc_in
 
 	mux2to1 inst_mux(
 			.input0(inst_mem_out),
 			.input1(32'b0),
 			.select(inst_mux_sel),
 			.out(inst_mux_out)
-		);
+		); // does it feed the actual isntruction or a stall instruction?
 
 	mux2to1 fence_mux(
 			.input0(pc_adder_out),
 			.input1(pc_out),
 			.select(Fence_signal),
 			.out(fence_mux_out)
-		);
+		); // TODO fenceing stuff. if fencing uses
 
 	/*
-	 *	IF/ID Pipeline Register
+	 *	IF/ID Pipeline Register - Insturction fetch/instruction decode
 	 */
 	if_id if_id_reg(
 			.clk(clk),
 			.data_in({inst_mux_out, pc_out}),
 			.data_out(if_id_out)
-		);
+		); // puts the output of inst_mux_out with pc_out into register
 
 	/*
 	 *	Decode Stage
@@ -234,14 +236,15 @@ module cpu(
 			.Auipc(Auipc1),
 			.Fence(Fence_signal),
 			.CSRR(CSRR_signal)
-		);
+		); // control unit. the opcode is defined by the first last bits of the instruction
+		// the other outputs state what type of instruction it is
 
 	mux2to1 cont_mux(
 			.input0({21'b0, Jalr1, ALUSrc1, Lui1, Auipc1, Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}),
 			.input1(32'b0),
 			.select(decode_ctrl_mux_sel),
 			.out(cont_mux_out)
-		);
+		); // used for flushing pipeline
 
 	regfile register_files(
 			.clk(clk),
@@ -252,23 +255,23 @@ module cpu(
 			.rdDataA(regA_out),
 			.rdAddrB(inst_mux_out[24:20]),
 			.rdDataB(regB_out)
-		);
+		); // the register file TODO, what is it writing
 
 	imm_gen immediate_generator(
 			.inst(if_id_out[63:32]),
 			.imm(imm_out)
-		);
+		); // TODO immediates are constant values in instruction
 
 	ALUControl alu_control(
 			.Opcode(if_id_out[38:32]),
 			.FuncCode({if_id_out[62], if_id_out[46:44]}),
 			.ALUCtl(alu_ctl)
-		);
+		); // alu controller. opcode and func code taken from output of pipeline register
 
 	sign_mask_gen sign_mask_gen_inst(
 			.func3(if_id_out[46:44]),
 			.sign_mask(dataMem_sign_mask)
-		);
+		); // TODO masking???
 
 	csr_file ControlAndStatus_registers(
 			.clk(clk),
@@ -277,35 +280,35 @@ module cpu(
 			.wrVal_CSR(mem_wb_out[35:4]),
 			.rdAddr_CSR(inst_mux_out[31:20]),
 			.rdVal_CSR(rdValOut_CSR)
-		);
+		); // TODO
 
 	mux2to1 RegA_mux(
 			.input0(regA_out),
 			.input1({27'b0, if_id_out[51:47]}),
 			.select(CSRRI_signal),
 			.out(RegA_mux_out)
-		);
+		); // todo
 
 	mux2to1 RegB_mux(
 			.input0(regB_out),
 			.input1(rdValOut_CSR),
 			.select(CSRR_signal),
 			.out(RegB_mux_out)
-		);
+		); // todo
 
 	mux2to1 RegA_AddrFwdFlush_mux( //TODO cleanup
 			.input0({27'b0, if_id_out[51:47]}),
 			.input1(32'b0),
 			.select(CSRRI_signal),
 			.out(RegA_AddrFwdFlush_mux_out)
-		);
+		); // TODO similar to RegA_mux but has an empty input - flushing?
 
 	mux2to1 RegB_AddrFwdFlush_mux( //TODO cleanup
 			.input0({27'b0, if_id_out[56:52]}),
 			.input1(32'b0),
 			.select(CSRR_signal),
 			.out(RegB_AddrFwdFlush_mux_out)
-		);
+		); // TODO similar to RegB_mux but has an empty input - flushing?
 
 	assign CSRRI_signal = CSRR_signal & (if_id_out[46]);
 
@@ -322,40 +325,40 @@ module cpu(
 			.input1(32'b0),
 			.select(pcsrc),
 			.out(ex_cont_mux_out)
-		);
+		); // selects between control signals and predict 
 
 	mux2to1 addr_adder_mux(
-			.input0(id_ex_out[43:12]),
-			.input1(wb_fwd1_mux_out),
-			.select(id_ex_out[11]),
+			.input0(id_ex_out[43:12]), // this is pc_out
+			.input1(wb_fwd1_mux_out), // operand forwarding stuff? TODO
+			.select(id_ex_out[11]), // if the control signal is jalr1 from cont_mux_out
 			.out(addr_adder_mux_out)
 		);
 
 	adder addr_adder(
-			.input1(addr_adder_mux_out),
-			.input2(id_ex_out[139:108]),
+			.input1(addr_adder_mux_out), 
+			.input2(id_ex_out[139:108]), // imm out
 			.out(addr_adder_sum)
 		);
 
 	mux2to1 alu_mux(
 			.input0(wb_fwd2_mux_out),
-			.input1(id_ex_out[139:108]),
-			.select(id_ex_out[10]),
+			.input1(id_ex_out[139:108]), // imm out
+			.select(id_ex_out[10]), // loads imm if jalr1
 			.out(alu_mux_out)
 		);
 
 	alu alu_main(
-			.ALUctl(id_ex_out[146:140]),
+			.ALUctl(id_ex_out[146:140]), // this is alu control signal
 			.A(wb_fwd1_mux_out),
 			.B(alu_mux_out),
 			.ALUOut(alu_result),
 			.Branch_Enable(alu_branch_enable)
-		);
+		); // actual alu
 
 	mux2to1 lui_mux(
 			.input0(alu_result),
-			.input1(id_ex_out[139:108]),
-			.select(id_ex_out[9]),
+			.input1(id_ex_out[139:108]), // imm out
+			.select(id_ex_out[9]), // TODO something to do with ALUSrc1
 			.out(lui_result)
 		);
 
@@ -375,7 +378,7 @@ module cpu(
 			.Mispredict(mistake_trigger),
 			.Decision(actual_branch_decision),
 			.Branch_Jump_Trigger(pcsrc)
-		);
+		); 
 
 	mux2to1 auipc_mux(
 			.input0(ex_mem_out[105:74]),
@@ -507,7 +510,9 @@ module cpu(
 	assign inst_mux_sel = pcsrc | predict | mistake_trigger | Fence_signal;
 
 	//Instruction Memory Connections
+	// assings the memory instruction it wants next stored in pc_out
 	assign inst_mem_in = pc_out;
+	
 
 	//Data Memory Connections
 	assign data_mem_addr = lui_result;
