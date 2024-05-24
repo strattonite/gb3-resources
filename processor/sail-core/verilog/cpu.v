@@ -260,7 +260,7 @@ module cpu(
 	imm_gen immediate_generator(
 			.inst(if_id_out[63:32]),
 			.imm(imm_out)
-		); // TODO immediates are constant values in instruction
+		); // TODO immediates are values in instruction
 
 	ALUControl alu_control(
 			.Opcode(if_id_out[38:32]),
