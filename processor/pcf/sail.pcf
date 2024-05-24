@@ -11,6 +11,9 @@ set_io led[3] B5 #13B
 set_io led[2] F2 #25B_G3
 set_io led[1] A5 #24A
 set_io led[0] D3 #10A
+set_io clk_input B3 
+
+#   B3 is GPIO. Set the input clock to the GPIO pin
 
 #set_io tx A1 #36B
 #set_io rx A2 #37A

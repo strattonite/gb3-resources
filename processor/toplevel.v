@@ -41,12 +41,11 @@
  *	Top level entity, linking cpu with data and instruction memory.
  */
 
-module top (led);
+module top (led, clk_input);
 	output [7:0]	led;
-
+	input		clk_input;
 	wire		clk_proc;
 	wire		data_clk_stall;
-	
 	wire		clk;
 	reg		ENCLKHF		= 1'b1;	// Plock enable
 	reg		CLKHF_POWERUP	= 1'b1;	// Power up the HFOSC circuit
@@ -56,10 +55,21 @@ module top (led);
 	 *	Use the iCE40's hard primitive for the clock source.
 	 */
 	// set the clock frequency to 12 MHz 
+	// we don't use SB_HFOSC anymore
+	/*
 	SB_HFOSC #(.CLKHF_DIV("0b10")) OSCInst0 (
 		.CLKHFEN(ENCLKHF),
 		.CLKHFPU(CLKHF_POWERUP),
 		.CLKHF(clk)
+	);
+	*/
+
+	// Use PLL instead
+
+	pll pll_inst(
+			.clock_in(clk_input),
+			.clock_out(clk),
+			.locked(locked)
 	);
 
 	/*
