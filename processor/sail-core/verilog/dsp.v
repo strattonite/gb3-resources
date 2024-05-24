@@ -1,4 +1,4 @@
-module dsp(a_in, b_in, sum, sub, clk);
+module dsp_adder_subtractor(a_in, b_in, sum, sub, clk);
     input [31:0] a_in;
     input [31:0] b_in;
     input clk; //cynchronous clock
@@ -10,7 +10,7 @@ module dsp(a_in, b_in, sum, sub, clk);
         .B(a_in[15:0]),
         .C(b_in[31:16]), 
         .D(b_in[15:0]),
-        .O(add),
+        .O(sum),
         .CLK(clk), //clock
         .CE(1'b1), // clock enable
         .IRSTTOP(1'b0), //don't reset top
@@ -64,7 +64,7 @@ defparam i_sbmac16_sum.NEG_TRIGGER = 1'b0; //detect rising edge
         .B(a_in[15:0]),
         .C(b_in[31:16]), 
         .D(b_in[15:0]),
-        .O(add),
+        .O(sub),
         .CLK(clk), //clock
         .CE(1'b1), // clock enable
         .IRSTTOP(1'b0), //don't reset top
