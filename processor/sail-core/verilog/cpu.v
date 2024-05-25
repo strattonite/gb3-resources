@@ -67,7 +67,7 @@ module cpu(
 	/*
 	 *	Data Memory
 	 */
-	input [31:0]		data_mem_out;
+	input [31:0]		data_mem_out; // data coming from memory
 	output [31:0]		data_mem_addr;
 	output [31:0]		data_mem_WrData;
 	output			data_mem_memwrite;
@@ -77,11 +77,11 @@ module cpu(
 	/*
 	 *	Program Counter
 	 */
-	wire [31:0]		pc_mux0;
+	wire [31:0]		pc_mux0; // pc_in if not branching
 	wire [31:0]		pc_in;
 	wire [31:0]		pc_out;
-	wire			pcsrc;
-	wire [31:0]		inst_mux_out;
+	wire			pcsrc; // trigger branching
+	wire [31:0]		inst_mux_out; // the actual insruction - either a stall instruction or the actual fetched
 	wire [31:0]		fence_mux_out;
 
 	/*
@@ -112,7 +112,7 @@ module cpu(
 	/*
 	 *	Decode stage
 	 */
-	wire [31:0]		cont_mux_out; // output of control signal mux. either contains stall or instruction
+	wire [31:0]		cont_mux_out; // contains stall or the type of instructino it is
 	wire [31:0]		regA_out;
 	wire [31:0]		regB_out;
 	wire [31:0]		imm_out;
@@ -150,15 +150,15 @@ module cpu(
 	/*
 	 *	Forwarding multiplexer wires
 	 */
-	wire [31:0]		dataMemOut_fwd_mux_out;
-	wire [31:0]		mem_fwd1_mux_out;
-	wire [31:0]		mem_fwd2_mux_out;
-	wire [31:0]		wb_fwd1_mux_out;
-	wire [31:0]		wb_fwd2_mux_out; // data to be written
-	wire			mfwd1;
-	wire			mfwd2;
-	wire			wfwd1;
-	wire			wfwd2;
+	wire [31:0]		dataMemOut_fwd_mux_out; // lui or data from memory
+	wire [31:0]		mem_fwd1_mux_out; // memory stage forward data
+	wire [31:0]		mem_fwd2_mux_out; // memory stage forward data
+	wire [31:0]		wb_fwd1_mux_out; // write back stage forward data
+	wire [31:0]		wb_fwd2_mux_out; // write back stage forward data
+	wire			mfwd1; // forwarding from memory stage?
+	wire			mfwd2; // forwarding from memory stage?
+	wire			wfwd1; // forwarding from write back stage?
+	wire			wfwd2; // forwarding from write back stage?
 
 	/*
 	 *	Branch Predictor
@@ -179,10 +179,10 @@ module cpu(
 
 	mux2to1 pc_mux(
 			.input0(pc_mux0),
-			.input1(ex_mem_out[72:41]),
-			.select(pcsrc),
+			.input1(ex_mem_out[72:41]), // addr_adder_sum
+			.select(pcsrc), // branching?
 			.out(pc_in)
-		); // TODO works out the next instruction to be fetched?? what is pc_in
+		); // selects out pc_in, which will be the next instruction fetched
 
 	adder pc_adder(
 			.input1(32'b100),
@@ -199,9 +199,9 @@ module cpu(
 	mux2to1 inst_mux(
 			.input0(inst_mem_out),
 			.input1(32'b0),
-			.select(inst_mux_sel),
+			.select(inst_mux_sel), // do we need to flush?
 			.out(inst_mux_out)
-		); // does it feed the actual isntruction or a stall instruction?
+		); // the actual insruction - either a stall instruction or the actual fetched
 
 	mux2to1 fence_mux(
 			.input0(pc_adder_out),
@@ -218,6 +218,9 @@ module cpu(
 			.data_in({inst_mux_out, pc_out}),
 			.data_out(if_id_out)
 		); // puts the output of inst_mux_out with pc_out into register
+
+		// if_id_out[63:32] = inst_mux_out
+		// if_id_out[31:0] = pc_out
 
 	/*
 	 *	Decode Stage
@@ -242,75 +245,75 @@ module cpu(
 	mux2to1 cont_mux(
 			.input0({21'b0, Jalr1, ALUSrc1, Lui1, Auipc1, Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}),
 			.input1(32'b0),
-			.select(decode_ctrl_mux_sel),
+			.select(decode_ctrl_mux_sel), // do we need to flush?
 			.out(cont_mux_out)
-		); // used for flushing pipeline
+		); // decides whether is stall or not
 
 	regfile register_files(
 			.clk(clk),
 			.write(ex_mem_out[2]),
 			.wrAddr(ex_mem_out[142:138]),
 			.wrData(reg_dat_mux_out),
-			.rdAddrA(inst_mux_out[19:15]),
+			.rdAddrA(inst_mux_out[19:15]), // 19:15 is the rs1 except for U-type isntructions
 			.rdDataA(regA_out),
-			.rdAddrB(inst_mux_out[24:20]),
+			.rdAddrB(inst_mux_out[24:20]), // 24:20 is rs2 excpet for I and U type
 			.rdDataB(regB_out)
 		); // the register file TODO, what is it writing
 
 	imm_gen immediate_generator(
-			.inst(if_id_out[63:32]),
+			.inst(if_id_out[63:32]), 
 			.imm(imm_out)
-		); // TODO immediates are values in instruction
+		); // generates the immedaite given the instruction
 
 	ALUControl alu_control(
-			.Opcode(if_id_out[38:32]),
-			.FuncCode({if_id_out[62], if_id_out[46:44]}),
+			.Opcode(if_id_out[38:32]), // the opcode
+			.FuncCode({if_id_out[62], if_id_out[46:44]}), // if_id_out[46:44] is funct3 // if_id_out[62] contrls bit shifting
 			.ALUCtl(alu_ctl)
 		); // alu controller. opcode and func code taken from output of pipeline register
 
 	sign_mask_gen sign_mask_gen_inst(
 			.func3(if_id_out[46:44]),
 			.sign_mask(dataMem_sign_mask)
-		); // TODO masking???
+		); // generates mask based on funct3? TODO doesn't match up with instruction set docs tho
 
 	csr_file ControlAndStatus_registers(
 			.clk(clk),
 			.write(mem_wb_out[3]), //TODO
 			.wrAddr_CSR(mem_wb_out[116:105]),
 			.wrVal_CSR(mem_wb_out[35:4]),
-			.rdAddr_CSR(inst_mux_out[31:20]),
+			.rdAddr_CSR(inst_mux_out[31:20]), // 12 bit immedaite in U type instruction
 			.rdVal_CSR(rdValOut_CSR)
 		); // TODO
 
 	mux2to1 RegA_mux(
-			.input0(regA_out),
-			.input1({27'b0, if_id_out[51:47]}),
+			.input0(regA_out), // output from register file TODO
+			.input1({27'b0, if_id_out[51:47]}), // if_id_out[51:47] is rs1
 			.select(CSRRI_signal),
 			.out(RegA_mux_out)
 		); // todo
 
 	mux2to1 RegB_mux(
-			.input0(regB_out),
-			.input1(rdValOut_CSR),
+			.input0(regB_out), // output from register file TODO
+			.input1(rdValOut_CSR), // output from control signal register
 			.select(CSRR_signal),
 			.out(RegB_mux_out)
 		); // todo
 
 	mux2to1 RegA_AddrFwdFlush_mux( //TODO cleanup
-			.input0({27'b0, if_id_out[51:47]}),
-			.input1(32'b0),
+			.input0({27'b0, if_id_out[51:47]}), // if_id_out[51:47] is rs1
+			.input1(32'b0), // stall?
 			.select(CSRRI_signal),
 			.out(RegA_AddrFwdFlush_mux_out)
 		); // TODO similar to RegA_mux but has an empty input - flushing?
 
 	mux2to1 RegB_AddrFwdFlush_mux( //TODO cleanup
-			.input0({27'b0, if_id_out[56:52]}),
-			.input1(32'b0),
+			.input0({27'b0, if_id_out[56:52]}), // rs2
+			.input1(32'b0), // stall?
 			.select(CSRR_signal),
 			.out(RegB_AddrFwdFlush_mux_out)
 		); // TODO similar to RegB_mux but has an empty input - flushing?
 
-	assign CSRRI_signal = CSRR_signal & (if_id_out[46]);
+	assign CSRRI_signal = CSRR_signal & (if_id_out[46]); // if_id_out[46] is highest bit of funct3
 
 	//ID/EX Pipeline Register
 	id_ex id_ex_reg(
@@ -319,10 +322,24 @@ module cpu(
 			.data_out(id_ex_out)
 		);
 
+	// [177:166] is immedaite in U type instruction
+	// [165:161] is rs2 or stall
+	// [160: 156] is rs1 or stall
+	// [155: 151] is rd or immediates
+	// [150:147] is the dat mask
+	// [146:140] is alu control signal
+	// [139:108] is the immediate
+	// [107:76] is RegB mux output
+	// [75:44] is RegA mux output
+	// [43:12] is isntruction address or pc_out
+	// [11:8] is {Jalr1, ALUSrc1, Lui1, Auipc1}
+	// [7] is predict
+	// [6:0] {Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}
+
 	//Execute stage
 	mux2to1 ex_cont_mux(
 			.input0({23'b0, id_ex_out[8:0]}),
-			.input1(32'b0),
+			.input1(32'b0), // stall? TODO
 			.select(pcsrc),
 			.out(ex_cont_mux_out)
 		); // selects between control signals and predict 
@@ -331,35 +348,36 @@ module cpu(
 			.input0(id_ex_out[43:12]), // this is pc_out
 			.input1(wb_fwd1_mux_out), // operand forwarding stuff? TODO
 			.select(id_ex_out[11]), // if the control signal is jalr1 from cont_mux_out
-			.out(addr_adder_mux_out)
+			.out(addr_adder_mux_out) // so if is JALR instruction use the operand forwarded
 		);
 
 	adder addr_adder(
 			.input1(addr_adder_mux_out), 
 			.input2(id_ex_out[139:108]), // imm out
-			.out(addr_adder_sum)
+			.out(addr_adder_sum) // add the imm to the previous iytoyt
 		);
 
 	mux2to1 alu_mux(
-			.input0(wb_fwd2_mux_out),
+			.input0(wb_fwd2_mux_out), // TODO: i'm thinking this is value from the register
+			// if the second operand is from register then it needs to be loaded so the value is forwarded???
 			.input1(id_ex_out[139:108]), // imm out
-			.select(id_ex_out[10]), // loads imm if jalr1
-			.out(alu_mux_out)
+			.select(id_ex_out[10]), // loads imm if ALUSrc1 - which tells if ALU second operand is immediate value of from register
+			.out(alu_mux_out) // the second operand for ALU
 		);
 
 	alu alu_main(
 			.ALUctl(id_ex_out[146:140]), // this is alu control signal
-			.A(wb_fwd1_mux_out),
-			.B(alu_mux_out),
+			.A(wb_fwd1_mux_out), // TODO: i think this is forwarded operand value
+			.B(alu_mux_out), // opearand B
 			.ALUOut(alu_result),
-			.Branch_Enable(alu_branch_enable)
+			.Branch_Enable(alu_branch_enable) // are we branching?
 		); // actual alu
 
 	mux2to1 lui_mux(
 			.input0(alu_result),
 			.input1(id_ex_out[139:108]), // imm out
-			.select(id_ex_out[9]), // TODO something to do with ALUSrc1
-			.out(lui_result)
+			.select(id_ex_out[9]), // is it a LUI instruction?
+			.out(lui_result) // if it's LUI instruction then just take the immediate, otherwise take the ALU output
 		);
 
 	//EX/MEM Pipeline Register
@@ -369,29 +387,38 @@ module cpu(
 			.data_out(ex_mem_out)
 		);
 
+	// [154:143] immediate in U type instruction
+	// [142: 138] rd or immediate depending on instruction
+	// [137:106] TODO operand 2 forwarding?
+	// [105:74] lui result, i think is the result to write
+	// [73] branching?
+	// [72:41] TODO addr_adder_sum
+	// [40:9] instruction address
+	// [8:0] {Auipc1 ,predict ,Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}
+
 	//Memory Access Stage
 	branch_decision branch_decide(
-			.Branch(ex_mem_out[6]),
-			.Predicted(ex_mem_out[7]),
-			.Branch_Enable(ex_mem_out[73]),
-			.Jump(ex_mem_out[0]),
-			.Mispredict(mistake_trigger),
-			.Decision(actual_branch_decision),
-			.Branch_Jump_Trigger(pcsrc)
+			.Branch(ex_mem_out[6]), // Branch1
+			.Predicted(ex_mem_out[7]), // predict
+			.Branch_Enable(ex_mem_out[73]), // branching?
+			.Jump(ex_mem_out[0]), // jump1
+			.Mispredict(mistake_trigger), // TODO whether mistake was miade?
+			.Decision(actual_branch_decision), // TODO branch deicsion
+			.Branch_Jump_Trigger(pcsrc) // branch trigger
 		); 
 
 	mux2to1 auipc_mux(
-			.input0(ex_mem_out[105:74]),
-			.input1(ex_mem_out[72:41]),
-			.select(ex_mem_out[8]),
-			.out(auipc_mux_out)
+			.input0(ex_mem_out[105:74]), // lui result
+			.input1(ex_mem_out[72:41]), // addr_adder_sum
+			.select(ex_mem_out[8]), // Auipc instruction
+			.out(auipc_mux_out) // if its Auipc will take addr_adder_sum which is the instruction address summed with immediate
 		);
 
 	mux2to1 mem_csrr_mux(
-			.input0(auipc_mux_out),
-			.input1(ex_mem_out[137:106]),
-			.select(ex_mem_out[3]),
-			.out(mem_csrr_mux_out)
+			.input0(auipc_mux_out), // auipc result
+			.input1(ex_mem_out[137:106]), // TODO operand 2 forwarding?
+			.select(ex_mem_out[3]), // CSRR signal
+			.out(mem_csrr_mux_out) 
 		);
 
 	//MEM/WB Pipeline Register
@@ -400,61 +427,68 @@ module cpu(
 			.data_in({ex_mem_out[154:143], ex_mem_out[142:138], data_mem_out, mem_csrr_mux_out, ex_mem_out[105:74], ex_mem_out[3:0]}),
 			.data_out(mem_wb_out)
 		);
+	
+	// [116:105] immediate value
+	// [104:100] rd or immediate value
+	// [99:68] data_mem_out
+	// [67:36] mem_csrr_mux_out
+	// [35:4] lui_result
+	// [3:0] is {CSRR_signal, RegWrite1, MemtoReg1, Jump1}
 
 	//Writeback to Register Stage
 	mux2to1 wb_mux(
-			.input0(mem_wb_out[67:36]),
-			.input1(mem_wb_out[99:68]),
-			.select(mem_wb_out[1]),
-			.out(wb_mux_out)
+			.input0(mem_wb_out[67:36]), // mem_csrr_mux_out
+			.input1(mem_wb_out[99:68]), // data_mem_out
+			.select(mem_wb_out[1]), // MemtoReg
+			.out(wb_mux_out) // 
 		);
 
 	mux2to1 reg_dat_mux( //TODO cleanup
 			.input0(mem_regwb_mux_out),
-			.input1(id_ex_out[43:12]),
-			.select(ex_mem_out[0]),
+			.input1(id_ex_out[43:12]), // 2 cycles ago instruction address
+			.select(ex_mem_out[0]), // 1 cyle ago mem to reg
 			.out(reg_dat_mux_out)
 		);
 
 	//Forwarding Unit
 	ForwardingUnit forwarding_unit(
-			.rs1(id_ex_out[160:156]),
-			.rs2(id_ex_out[165:161]),
-			.MEM_RegWriteAddr(ex_mem_out[142:138]),
-			.WB_RegWriteAddr(mem_wb_out[104:100]),
-			.MEM_RegWrite(ex_mem_out[2]),
-			.WB_RegWrite(mem_wb_out[2]),
-			.EX_CSRR_Addr(id_ex_out[177:166]),
-			.MEM_CSRR_Addr(ex_mem_out[154:143]),
-			.WB_CSRR_Addr(mem_wb_out[116:105]),
-			.MEM_CSRR(ex_mem_out[3]),
-			.WB_CSRR(mem_wb_out[3]),
-			.MEM_fwd1(mfwd1),
+			.rs1(id_ex_out[160:156]), // rs1 from between decode and execute
+			.rs2(id_ex_out[165:161]), // rs2 from between decode and execute
+			.MEM_RegWriteAddr(ex_mem_out[142:138]), // rd or immediate between execute and memory access
+			.WB_RegWriteAddr(mem_wb_out[104:100]),  // rd or immediate between memory and writeback
+			.MEM_RegWrite(ex_mem_out[2]), // Regwrite from execute/memory 
+			.WB_RegWrite(mem_wb_out[2]),// Regwrite from memory/write back
+			.EX_CSRR_Addr(id_ex_out[177:166]), // Immediate in from decode/execute
+			.MEM_CSRR_Addr(ex_mem_out[154:143]), // immediate from execute/mem
+			.WB_CSRR_Addr(mem_wb_out[116:105]), // immediate from mem/wb
+			.MEM_CSRR(ex_mem_out[3]), // csrr from execute/mem
+			.WB_CSRR(mem_wb_out[3]), // csrr from mem/wb
+			.MEM_fwd1(mfwd1), 
 			.MEM_fwd2(mfwd2),
 			.WB_fwd1(wfwd1),
 			.WB_fwd2(wfwd2)
 		);
 
 	mux2to1 mem_fwd1_mux(
-			.input0(id_ex_out[75:44]),
-			.input1(dataMemOut_fwd_mux_out),
-			.select(mfwd1),
-			.out(mem_fwd1_mux_out)
+			.input0(id_ex_out[75:44]), // regA mux output
+			.input1(dataMemOut_fwd_mux_out), 
+			.select(mfwd1), // forwarding from memory stage?
+			.out(mem_fwd1_mux_out) // memory forward 
 		);
 
 	mux2to1 mem_fwd2_mux(
-			.input0(id_ex_out[107:76]),
+			.input0(id_ex_out[107:76]), // regB mux output
 			.input1(dataMemOut_fwd_mux_out),
 			.select(mfwd2),
-			.out(mem_fwd2_mux_out)
-		);
+			.out(mem_fwd2_mux_out) 
+	); // works out forward data from memory stage
 
 	mux2to1 wb_fwd1_mux(
 			.input0(mem_fwd1_mux_out),
 			.input1(wb_mux_out),
 			.select(wfwd1),
 			.out(wb_fwd1_mux_out)
-		);
+		); // works out forward data fromw riteback
 
 	mux2to1 wb_fwd2_mux(
 			.input0(mem_fwd2_mux_out),
@@ -464,36 +498,36 @@ module cpu(
 		);
 
 	mux2to1 dataMemOut_fwd_mux(
-			.input0(ex_mem_out[105:74]),
-			.input1(data_mem_out),
-			.select(ex_mem_out[1]),
-			.out(dataMemOut_fwd_mux_out)
+			.input0(ex_mem_out[105:74]), // lui result
+			.input1(data_mem_out), // or data from memory
+			.select(ex_mem_out[1]), // MemToReg
+			.out(dataMemOut_fwd_mux_out) // selects data to be forwarded for memory stage
 		);
 
 	//Branch Predictor
 	branch_predictor branch_predictor_FSM(
 			.clk(clk),
 			.actual_branch_decision(actual_branch_decision),
-			.branch_decode_sig(cont_mux_out[6]),
-			.branch_mem_sig(ex_mem_out[6]),
-			.in_addr(if_id_out[31:0]),
-			.offset(imm_out),
-			.branch_addr(branch_predictor_addr),
-			.prediction(predict)
+			.branch_decode_sig(cont_mux_out[6]), // branching from decode stage
+			.branch_mem_sig(ex_mem_out[6]), // branching from execute stage
+			.in_addr(if_id_out[31:0]), // address between fetch/
+			.offset(imm_out), // imeediate value from decode
+			.branch_addr(branch_predictor_addr), // predicted address
+			.prediction(predict) // are we predciting?
 		);
 
 	mux2to1 branch_predictor_mux(
-			.input0(fence_mux_out),
-			.input1(branch_predictor_addr),
-			.select(predict),
-			.out(branch_predictor_mux_out)
+			.input0(fence_mux_out), // fence address
+			.input1(branch_predictor_addr), // predicted address
+			.select(predict), // predicting?
+			.out(branch_predictor_mux_out) // selec the predicted address
 		);
 
 	mux2to1 mistaken_branch_mux(
-			.input0(branch_predictor_mux_out),
-			.input1(id_ex_out[43:12]),
-			.select(mistake_trigger),
-			.out(pc_mux0)
+			.input0(branch_predictor_mux_out), // branch predictor output
+			.input1(id_ex_out[43:12]), // pc_out
+			.select(mistake_trigger), // mistake?
+			.out(pc_mux0) // if not branching
 		);
 
 	wire[31:0] mem_regwb_mux_out; //TODO copy of wb_mux but in mem stage, move back and cleanup
@@ -506,7 +540,7 @@ module cpu(
 		);
 
 	//OR gate assignments, used for flushing
-	assign decode_ctrl_mux_sel = pcsrc | mistake_trigger;
+	assign decode_ctrl_mux_sel = pcsrc | mistake_trigger; // branching or mistake?
 	assign inst_mux_sel = pcsrc | predict | mistake_trigger | Fence_signal;
 
 	//Instruction Memory Connections
