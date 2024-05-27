@@ -9,3 +9,10 @@ TODO
 - [ ] figure out measuring execution time / power usage 
 - [ ] implement benchmarks
 - [ ] program disassembler? + instruction counts
+
+SO FAR
+- lw = sw = 3 cycles
+- add = addi = 1 cycle 
+- all R format (arithmetic) ops are 1 cycle (sll/slti/slt may not be) 
+- bubblesort constrained by sw/lw as are most alu heavy programs
+- pipeline memory accesses may have best value

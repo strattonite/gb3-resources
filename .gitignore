@@ -9,7 +9,6 @@
 
 # vscode and mac specific files
 .vscode/**
-.DS_Store**
 
 **build/**
 
@@ -24,4 +23,7 @@
 **/*.sr
 **/*.map
 *.node0
-*.DS_STORE
+**/target/
+**/Cargo.lock
+
+.DS_Store
