@@ -45,7 +45,7 @@
 module instruction_memory(addr, out, clk,  clk_stall);
 	input [31:0]		addr;
 	input clk;
-	output [31:0]		out;
+	output reg [31:0]		out;
 	output reg 			clk_stall;
 
 	/*
@@ -83,33 +83,18 @@ module instruction_memory(addr, out, clk,  clk_stall);
 		 *	read from "program.hex" and store the instructions in instruction memory
 		 */
 		$readmemh("verilog/program.hex",instruction_memory);
+		out = 32'b0;
 	end
 	
 	
-	always @(posedge clk) begin
+	always @(negedge clk) begin
 		/* TODO  
 		test state machine*/
-		case (state)
-			IDLE: begin
-				if (addr != previous_addr) begin
-					state <= READ_BUFFER;
-					clk_stall <= 1;
-					previous_addr <= addr;
-				end
-			end
-			READ_BUFFER: begin
-				state <= READ;
-			end
-			READ: begin
-				state <= IDLE;
-				read_data <= instruction_memory[addr >> 2];
-				clk_stall <= 0;
-			end
-		endcase
+		out <= instruction_memory[addr >> 2];
 	end
 	
 	
-	assign out = read_data;
+	// assign out = read_data;
 	
 	
 endmodule
