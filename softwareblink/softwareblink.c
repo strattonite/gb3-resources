@@ -8,12 +8,13 @@ int main(void)
 	 *	to the address. See the PCF file for how those 8 pins are
 	 *	mapped.
 	 */
-	enum
-	{
-		kSpinDelay = 400000,
-	};
+	// enum
+	// {
+	// 	kSpinDelay = 400000,
+	// };
 
 	volatile unsigned int *gDebugLedsMemoryMappedRegister = (unsigned int *)0x2000;
+	*gDebugLedsMemoryMappedRegister = 0xFF;
 	while (1)
 	{
 		*gDebugLedsMemoryMappedRegister = 0xFF;
@@ -21,7 +22,7 @@ int main(void)
 		/*
 		 *	Spin
 		 */
-		for (int j = 0; j < kSpinDelay; j++)
+		for (int j = 0; j < 400000; j++)
 			;
 
 		*gDebugLedsMemoryMappedRegister = 0x00;
@@ -29,7 +30,7 @@ int main(void)
 		/*
 		 *	Spin
 		 */
-		for (int j = 0; j < kSpinDelay; j++)
+		for (int j = 0; j < 400000; j++)
 			;
 	}
 }

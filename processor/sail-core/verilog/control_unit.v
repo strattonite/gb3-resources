@@ -52,22 +52,37 @@ module control(
 		Lui,
 		Auipc,
 		Fence,
-		CSRR
+		CSRR,
+		RS1,
+		RS2
 	);
 
 	input	[6:0] opcode;
-	output	MemtoReg, RegWrite, MemWrite, MemRead, Branch, ALUSrc, Jump, Jalr, Lui, Auipc, Fence, CSRR;
+	output	MemtoReg, RegWrite, MemWrite, MemRead, Branch, ALUSrc, Jump, Jalr, Lui, Auipc, Fence, CSRR, RS1, RS2;
 
+	// loads only
 	assign MemtoReg = (~opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[0]);
+	// loads, alu ops, jal/jalr, lui, auipc
 	assign RegWrite = ((~(opcode[4] | opcode[5])) | opcode[2] | opcode[4]) & opcode[0];
+	// stores only
 	assign MemWrite = (~opcode[6]) & (opcode[5]) & (~opcode[4]);
+	// same as MemtoReg
 	assign MemRead = (~opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[1]);
 	assign Branch = (opcode[6]) & (~opcode[4]) & (~opcode[2]);
+	// ALU immediates or loads/stores
 	assign ALUSrc = ~(opcode[6] | opcode[4]) | (~opcode[5]);
 	assign Jump = (opcode[6]) & (opcode[5]) & (~opcode[4]) & (opcode[2]);
 	assign Jalr = (opcode[6]) & (opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[2]);
 	assign Lui = (~opcode[6]) & (opcode[5]) & (opcode[4]) & (~opcode[3]) & (opcode[2]);
 	assign Auipc = (~opcode[6]) & (~opcode[5]) & (opcode[4]) & (~opcode[3]) & (opcode[2]);
+
+	// no opcode sets Fence high
 	assign Fence = (~opcode[5]) & opcode[3] & (opcode[2]);
+	// ecall or ebreak
 	assign CSRR = (opcode[6]) & (opcode[4]);
+
+	// only R format arithmetic, stores and branches
+	assign RS2 = ((~opcode[6]) & (opcode[5]) & (~opcode[4])) | (opcode[6] & opcode[5] & (~opcode[2]) & (~opcode[4])) | (opcode[5] & opcode[4] & (~opcode[3]) & (~opcode[2]));
+	// only I/R arithmetic and branches
+	assign RS1 = ((~opcode[5]) & (opcode[4]) & (~opcode[3]) & (~opcode[2])) | (opcode[6] & opcode[5] & (~opcode[2]) & (~opcode[4])) | (opcode[5] & opcode[4] & (~opcode[3]) & (~opcode[2]));
 endmodule

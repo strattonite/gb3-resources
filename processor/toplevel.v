@@ -75,7 +75,7 @@ module top (led);
 
 
 	cpu processor(
-		.clk(clk_proc),
+		.clk(clk),
 		.inst_mem_in(inst_in),
 		.inst_mem_out(inst_out),
 		.data_mem_out(data_out),

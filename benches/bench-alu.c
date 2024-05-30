@@ -17,7 +17,7 @@ int main(void)
         ;
 
     *gDebugLedsMemoryMappedRegister = 0xFF;
-    // measure cycles for j++
+    // measure cycles for spin loop alone
     for (int j = 0; j < SPIN_CYCLES; j++)
         ;
 
@@ -39,8 +39,19 @@ int main(void)
     for (int j = 0; j < SPIN_CYCLES; j++)
     {
         d += a; // add
-        c = d;
     }
+
+    // second loop used to vary numbers of instructions in loop
+    *gDebugLedsMemoryMappedRegister = 0xFF;
+    for (int j = 0; j < SPIN_CYCLES; j++)
+    {
+        d += a; // add
+        c = d;  // add
+    }
+
+    *gDebugLedsMemoryMappedRegister = 0x00;
+    for (int j = 0; j < SPIN_CYCLES; j++)
+        ;
 
     // *gDebugLedsMemoryMappedRegister = 0x00;
     // for (int j = 0; j < SPIN_CYCLES; j++)

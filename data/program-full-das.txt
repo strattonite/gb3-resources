@@ -47,7 +47,7 @@ start name    rs1   rs2   imm         rd    signed imm
   90  sw      0x08  0x00  0xFFFFFFDC        -36
   94  jal                 0x10        0x00  16
 
-  // begin loop
+  // begin spin loop
   98  lw      0x08        0xFFFFFFDC  0x0F  -36
   9c  addi    0x0F        0x1         0x0F  1
   a0  sw      0x08  0x0F  0xFFFFFFDC        -36
@@ -63,11 +63,11 @@ start name    rs1   rs2   imm         rd    signed imm
   c0  sw      0x08  0x00  0xFFFFFFD8        -40
   c4  jal                 0x1C        0x00  28
 
-  // addi loop
+  // begin addi loop
   c8  lw      0x08        0xFFFFFFEC  0x0F  -20
   cc  addi    0x0F        0x112       0x0F  274
   d0  sw      0x08  0x0F  0xFFFFFFEC        -20
-
+  // below is same as spin loop
   d4  lw      0x08        0xFFFFFFD8  0x0F  -40
   d8  addi    0x0F        0x1         0x0F  1
   dc  sw      0x08  0x0F  0xFFFFFFD8        -40

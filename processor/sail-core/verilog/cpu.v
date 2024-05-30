@@ -88,6 +88,7 @@ module cpu(
 	 *	Pipeline Registers
 	 */
 	wire [63:0]		if_id_out; // output of fetch/decode pipeline register
+	wire [177:0]		id_ex_in;
 	wire [177:0]		id_ex_out; // output of execute pipeline register
 	wire [154:0]		ex_mem_out;
 	wire [116:0]		mem_wb_out;
@@ -108,7 +109,12 @@ module cpu(
 	wire			Fence_signal;
 	wire			CSRR_signal;
 	wire			CSRRI_signal;
+	wire 			RS1;
+	wire			RS2;
 
+	// does OOE module need to stall clock?
+	wire 			stall_clk;
+	wire 			clk_proc;
 	/*
 	 *	Decode stage
 	 */
@@ -193,7 +199,7 @@ module cpu(
 	program_counter PC(
 			.inAddr(pc_in),
 			.outAddr(pc_out),
-			.clk(clk)
+			.clk(clk_proc)
 		); // instantiates program counter - every clock sets pc_out = pc_in
 
 	mux2to1 inst_mux(
@@ -214,7 +220,7 @@ module cpu(
 	 *	IF/ID Pipeline Register - Insturction fetch/instruction decode
 	 */
 	if_id if_id_reg(
-			.clk(clk),
+			.clk(clk_proc),
 			.data_in({inst_mux_out, pc_out}),
 			.data_out(if_id_out)
 		); // puts the output of inst_mux_out with pc_out into register
@@ -235,10 +241,13 @@ module cpu(
 			.Lui(Lui1),
 			.Auipc(Auipc1),
 			.Fence(Fence_signal),
-			.CSRR(CSRR_signal)
+			.CSRR(CSRR_signal),
+			.RS1(RS1),
+			.RS2(RS2)
 		); // control unit. the opcode is defined by the first last bits of the instruction
 		// the other outputs state what type of instruction it is
 
+	// {21'b0, Jalr1, ALUSrc1, Lui1, Auipc1, Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}
 	mux2to1 cont_mux(
 			.input0({21'b0, Jalr1, ALUSrc1, Lui1, Auipc1, Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}),
 			.input1(32'b0),
@@ -247,7 +256,7 @@ module cpu(
 		); // used for flushing pipeline
 
 	regfile register_files(
-			.clk(clk),
+			.clk(clk_proc),
 			.write(ex_mem_out[2]),
 			.wrAddr(ex_mem_out[142:138]),
 			.wrData(reg_dat_mux_out),
@@ -274,7 +283,7 @@ module cpu(
 		); // TODO masking???
 
 	csr_file ControlAndStatus_registers(
-			.clk(clk),
+			.clk(clk_proc),
 			.write(mem_wb_out[3]), //TODO
 			.wrAddr_CSR(mem_wb_out[116:105]),
 			.wrVal_CSR(mem_wb_out[35:4]),
@@ -312,12 +321,36 @@ module cpu(
 
 	assign CSRRI_signal = CSRR_signal & (if_id_out[46]);
 
-	//ID/EX Pipeline Register
-	id_ex id_ex_reg(
+	// out of order execution module
+	instruction_generator ix_gen(
 			.clk(clk),
-			.data_in({if_id_out[63:52], RegB_AddrFwdFlush_mux_out[4:0], RegA_AddrFwdFlush_mux_out[4:0], if_id_out[43:39], dataMem_sign_mask, alu_ctl, imm_out, RegB_mux_out, RegA_mux_out, if_id_out[31:0], cont_mux_out[10:7], predict, cont_mux_out[6:0]}),
-			.data_out(id_ex_out)
-		);
+			.data_in({RS1, RS2, if_id_out[63:52], RegB_AddrFwdFlush_mux_out[4:0], RegA_AddrFwdFlush_mux_out[4:0], if_id_out[43:39], dataMem_sign_mask, alu_ctl, imm_out, RegB_mux_out, RegA_mux_out, if_id_out[31:0], cont_mux_out[10:7], predict, cont_mux_out[6:0]}),
+			.data_out(id_ex_out),
+			.stall_clk(stall_clk)
+	);
+
+	assign clk_proc = (stall_clk) ? 1'b1 : clk;
+
+	//ID/EX Pipeline Register
+	// id_ex id_ex_reg(
+	// 		.clk(clk_proc),
+	// 		.data_in(id_ex_in),
+	// 		.data_out(id_ex_out)
+	// 	);
+
+	// [177:166] is immediate in U type instruction
+	// [165:161] is rs2 or stall
+	// [160: 156] is rs1 or stall
+	// [155: 151] is rd or immediates
+	// [150:147] is the data mask
+	// [146:140] is alu control signal
+	// [139:108] is the immediate
+	// [107:76] is RegB mux output
+	// [75:44] is RegA mux output
+	// [43:12] is isntruction address or pc_out
+	// [11:8] is {Jalr1, ALUSrc1, Lui1, Auipc1}
+	// [7] is predict
+	// [6:0] {Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1}
 
 	//Execute stage
 	mux2to1 ex_cont_mux(
@@ -364,7 +397,7 @@ module cpu(
 
 	//EX/MEM Pipeline Register
 	ex_mem ex_mem_reg(
-			.clk(clk),
+			.clk(clk_proc),
 			.data_in({id_ex_out[177:166], id_ex_out[155:151], wb_fwd2_mux_out, lui_result, alu_branch_enable, addr_adder_sum, id_ex_out[43:12], ex_cont_mux_out[8:0]}),
 			.data_out(ex_mem_out)
 		);
@@ -396,7 +429,7 @@ module cpu(
 
 	//MEM/WB Pipeline Register
 	mem_wb mem_wb_reg(
-			.clk(clk),
+			.clk(clk_proc),
 			.data_in({ex_mem_out[154:143], ex_mem_out[142:138], data_mem_out, mem_csrr_mux_out, ex_mem_out[105:74], ex_mem_out[3:0]}),
 			.data_out(mem_wb_out)
 		);
