@@ -45,7 +45,7 @@
 module instruction_memory(addr, out, clk,  clk_stall);
 	input [31:0]		addr;
 	input clk;
-	output reg [31:0]		out;
+	output reg[31:0]		out;
 	output reg 			clk_stall;
 
 	/*
@@ -55,8 +55,9 @@ module instruction_memory(addr, out, clk,  clk_stall);
 	 */
 	 
 	reg [31:0]		instruction_memory[0:2**10-1];
-	reg[31:0] 		previous_addr;
-	reg [31:0]		read_data;
+	reg[31:0] 		addr_buf;
+	reg[31:0] 		word_buf;
+	wire [31:0]		read_buf;
 
 	integer state = 0;
 	
@@ -83,14 +84,37 @@ module instruction_memory(addr, out, clk,  clk_stall);
 		 *	read from "program.hex" and store the instructions in instruction memory
 		 */
 		$readmemh("verilog/program.hex",instruction_memory);
-		out = 32'b0;
 	end
 	
 	
 	always @(negedge clk) begin
 		/* TODO  
 		test state machine*/
-		out <= instruction_memory[addr >> 2];
+		case (state)
+			IDLE: begin
+				addr_buf <= addr;
+				state <= READ_BUFFER;
+				clk_stall <= 1;
+				end
+			
+
+			READ_BUFFER: begin
+				/*
+				 *	Subtract out the size of the instruction memory.
+				 *	(Bad practice: The constant should be a `define).
+				 */
+				word_buf <= instruction_memory[addr_buf >> 2];
+				state <= READ;
+				
+			end
+
+			READ: begin
+				clk_stall <= 0;
+				out <= word_buf;
+				state <= IDLE;
+			end
+
+		endcase
 	end
 	
 	
