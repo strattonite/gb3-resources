@@ -25,3 +25,6 @@
 **/*.map
 *.node0
 *.DS_STORE
+*.vcd 
+Cargo.lock
+disassembler/target/
