@@ -38,16 +38,20 @@
 
 //Data cache
 
+`define READ = 2'b01;
+`define WRITE = 2'b10;
+`define NONE = 2'b00;
+
 module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data, led, clk_stall);
-	input			clk;
+	input				clk;
 	input [31:0]		addr;
 	input [31:0]		write_data;
-	input			memwrite;
-	input			memread;
-	input [3:0]		sign_mask;
+	input				memwrite;
+	input				memread;
+	input [3:0]			sign_mask;
 	output reg [31:0]	read_data;
 	output [7:0]		led;
-	output reg		clk_stall;	//Sets the clock high
+	output reg			clk_stall;	//Sets the clock high
 
 	/*
 	 *	led register
@@ -66,6 +70,8 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	parameter		READ_BUFFER = 1;
 	parameter		READ = 2;
 	parameter		WRITE = 3;
+
+	reg[1:0] 		states[2:0];
 
 	/*
 	 *	Line buffer
@@ -172,7 +178,9 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	wire[31:0] write_out1;
 	wire[31:0] write_out2;
 
+	// halfword
 	assign write_select0 = ~sign_mask_buf[2] & sign_mask_buf[1];
+	// word
 	assign write_select1 = sign_mask_buf[2];
 
 	assign write_out1 = (write_select0) ? {halfword_r1, halfword_r0} : {byte_r3, byte_r2, byte_r1, byte_r0};
@@ -180,7 +188,7 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 
 	assign replacement_word = (write_select1) ? write_out2 : write_out1;
 	/*
-	 *	Combinational logic for generating 32-bit read data
+	 *	Combinatorial logic for generating 32-bit read data
 	 */
 
 	wire select0;
@@ -197,10 +205,14 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	 * d is addr_buf_byte_offset[1], e is addr_buf_byte_offset[0]
 	 */
 
+	// (lb/sb & byte_offset = 0x1) | (lb/lh & byte_offset=0x3) | (lh/sh & byte_offset=0x3/0x2)
 	assign select0 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & ~addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & sign_mask_buf[1] & addr_buf_byte_offset[1]); //~a~b~de + ~ade + ~abd
+	// (lb/sb & byte_offset = 0x3/0x2) | lw/sw
 	assign select1 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & addr_buf_byte_offset[1]) | (sign_mask_buf[2] & sign_mask_buf[1]); // ~a~bd + ab
+	// halfword or word
 	assign select2 = sign_mask_buf[1]; //b
 
+	// sign_mask_buf[3] is lbu/lhu
 	assign out1 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{24{buf1[7]}}, buf1} : {24'b0, buf1}) : ((sign_mask_buf[3]==1'b1) ? {{24{buf0[7]}}, buf0} : {24'b0, buf0});
 	assign out2 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{24{buf3[7]}}, buf3} : {24'b0, buf3}) : ((sign_mask_buf[3]==1'b1) ? {{24{buf2[7]}}, buf2} : {24'b0, buf2});
 	assign out3 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{16{buf3[7]}}, buf3, buf2} : {16'b0, buf3, buf2}) : ((sign_mask_buf[3]==1'b1) ? {{16{buf1[7]}}, buf1, buf0} : {16'b0, buf1, buf0});
