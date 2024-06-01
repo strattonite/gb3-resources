@@ -106,5 +106,5 @@ module top (led);
 			.clk_stall(data_clk_stall)
 		);
 
-	assign clk_proc = (data_clk_stall || instr_clk_stall) ? 1'b1 : clk;
+	assign clk_proc = instr_clk_stall ? 1'b0 : (data_clk_stall) ? 1'b1 : clk;
 endmodule

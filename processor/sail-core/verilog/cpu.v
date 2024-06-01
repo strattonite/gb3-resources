@@ -134,12 +134,13 @@ module cpu(
 	wire			alu_branch_enable;
 	wire [31:0]		alu_result; // output from alu
 	wire [31:0]		lui_result; // address to write to
-
+	
 	/*
 	 *	Memory access stage
 	 */
 	wire [31:0]		auipc_mux_out;
 	wire [31:0]		mem_csrr_mux_out;
+	wire[31:0] mem_regwb_mux_out;
 
 	/*
 	 *	Writeback to registers stage
@@ -530,7 +531,7 @@ module cpu(
 			.out(pc_mux0) // if not branching
 		);
 
-	wire[31:0] mem_regwb_mux_out; //TODO copy of wb_mux but in mem stage, move back and cleanup
+	 //TODO copy of wb_mux but in mem stage, move back and cleanup
 	//A copy of the writeback mux, but in MEM stage //TODO move back and cleanup
 	mux2to1 mem_regwb_mux(
 			.input0(mem_csrr_mux_out),

@@ -110,7 +110,7 @@ module instruction_memory(addr, out, clk,  clk_stall);
 
 			READ: begin
 				clk_stall <= 0;
-				out <= word_buf;
+				out <= instruction_memory[addr_buf >> 2];
 				state <= IDLE;
 			end
 

@@ -1,8 +1,6 @@
 # Run 'usbipd list' command and filter for the line containing 'Serial'
 
-wsl
 
-exit
 
 $result = usbipd list | Select-String -Pattern "Serial"
 

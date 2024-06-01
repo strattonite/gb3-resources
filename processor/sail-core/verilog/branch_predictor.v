@@ -99,9 +99,12 @@ module branch_predictor(
 	 *	a bubble, so a 0 to 1 transition
 	 */
 	always @(posedge clk) begin
+		// branch_mem_sig_reg <= branch_mem_sig;
 		if (branch_mem_sig_reg) begin
-			s[1] <= (s[1]&s[0]) | (s[0]&actual_branch_decision) | (s[1]&actual_branch_decision);
-			s[0] <= (s[1]&(!s[0])) | ((!s[0])&actual_branch_decision) | (s[1]&actual_branch_decision);
+			// s[1] <= (s[1]&s[0]) | (s[0]&actual_branch_decision) | (s[1]&actual_branch_decision);
+			// s[0] <= (s[1]&(!s[0])) | ((!s[0])&actual_branch_decision) | (s[1]&actual_branch_decision);
+			s <= {(s[1]&s[0]) | (s[0]&actual_branch_decision) | (s[1]&actual_branch_decision),
+			(s[1]&(!s[0])) | ((!s[0])&actual_branch_decision) | (s[1]&actual_branch_decision)};
 		end
 	end
 
