@@ -34,13 +34,15 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-module read_logic(clk, addr_buf, sign_mask_buf, word_buf, read_buf);
+module mem_logic(clk, addr_buf, sign_mask_buf, word_buf, read_buf, write_data_buffer, replacement_word);
 	input				clk;
 	input [31:0] 		addr_buf;
 	input [3:0]			sign_mask_buf;
 	input [31:0]		word_buf;
 
 	output wire [31:0]	read_buf;
+	output wire [31:0]	replacement_word;
+	input [31:0]		write_data_buffer;
 
 	wire [9:0]		addr_buf_block_addr;
 	wire [1:0]		addr_buf_byte_offset;
@@ -82,32 +84,6 @@ module read_logic(clk, addr_buf, sign_mask_buf, word_buf, read_buf);
 	assign out6 = (select1) ? out4 : out3;
 
 	assign read_buf = (select2) ? out6 : out5;
-endmodule
-
-module write_logic(clk, addr_buf, sign_mask_buf, word_buf, write_data_buffer, replacement_word);
-	input				clk;
-	input [31:0] 		addr_buf;
-	input [3:0]			sign_mask_buf;
-	input [31:0]		write_data_buffer;
-	input [31:0]		word_buf;
-
-	output wire [31:0]	replacement_word;
-
-	wire [9:0]		addr_buf_block_addr;
-	wire [1:0]		addr_buf_byte_offset;
-
-	assign			addr_buf_block_addr	= addr_buf[11:2];
-	assign			addr_buf_byte_offset	= addr_buf[1:0];
-
-	wire [7:0]		buf0;
-	wire [7:0]		buf1;
-	wire [7:0]		buf2;
-	wire [7:0]		buf3;
-
-	assign 			buf0	= word_buf[7:0];
-	assign 			buf1	= word_buf[15:8];
-	assign 			buf2	= word_buf[23:16];
-	assign 			buf3	= word_buf[31:24];
 
 	wire bdec_sig0;
 	wire bdec_sig1;
@@ -151,6 +127,73 @@ module write_logic(clk, addr_buf, sign_mask_buf, word_buf, write_data_buffer, re
 	assign replacement_word = (write_select1) ? write_out2 : write_out1;
 endmodule
 
+// module write_logic(clk, addr_buf, sign_mask_buf, word_buf, write_data_buffer, replacement_word);
+// 	input				clk;
+// 	input [31:0] 		addr_buf;
+// 	input [3:0]			sign_mask_buf;
+// 	input [31:0]		write_data_buffer;
+// 	input [31:0]		word_buf;
+
+// 	output wire [31:0]	replacement_word;
+
+// 	wire [9:0]		addr_buf_block_addr;
+// 	wire [1:0]		addr_buf_byte_offset;
+
+// 	assign			addr_buf_block_addr	= addr_buf[11:2];
+// 	assign			addr_buf_byte_offset	= addr_buf[1:0];
+
+// 	wire [7:0]		buf0;
+// 	wire [7:0]		buf1;
+// 	wire [7:0]		buf2;
+// 	wire [7:0]		buf3;
+
+// 	assign 			buf0	= word_buf[7:0];
+// 	assign 			buf1	= word_buf[15:8];
+// 	assign 			buf2	= word_buf[23:16];
+// 	assign 			buf3	= word_buf[31:24];
+
+// 	wire bdec_sig0;
+// 	wire bdec_sig1;
+// 	wire bdec_sig2;
+// 	wire bdec_sig3;
+
+// 	assign bdec_sig0 = (~addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
+// 	assign bdec_sig1 = (~addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
+// 	assign bdec_sig2 = (addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
+// 	assign bdec_sig3 = (addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
+
+// 	wire[7:0] byte_r0;
+// 	wire[7:0] byte_r1;
+// 	wire[7:0] byte_r2;
+// 	wire[7:0] byte_r3;
+
+// 	assign byte_r0 = (bdec_sig0==1'b1) ? write_data_buffer[7:0] : buf0;
+// 	assign byte_r1 = (bdec_sig1==1'b1) ? write_data_buffer[7:0] : buf1;
+// 	assign byte_r2 = (bdec_sig2==1'b1) ? write_data_buffer[7:0] : buf2;
+// 	assign byte_r3 = (bdec_sig3==1'b1) ? write_data_buffer[7:0] : buf3;
+
+// 	wire[15:0] halfword_r0;
+// 	wire[15:0] halfword_r1;
+
+// 	assign halfword_r0 = (addr_buf_byte_offset[1]==1'b1) ? {buf1, buf0} : write_data_buffer[15:0];
+// 	assign halfword_r1 = (addr_buf_byte_offset[1]==1'b1) ? write_data_buffer[15:0] : {buf3, buf2};
+
+
+// 	wire write_select0;
+// 	wire write_select1;
+
+// 	wire[31:0] write_out1;
+// 	wire[31:0] write_out2;
+
+// 	assign write_select0 = ~sign_mask_buf[2] & sign_mask_buf[1];
+// 	assign write_select1 = sign_mask_buf[2];
+
+// 	assign write_out1 = (write_select0) ? {halfword_r1, halfword_r0} : {byte_r3, byte_r2, byte_r1, byte_r0};
+// 	assign write_out2 = (write_select0) ? 32'b0 : write_data_buffer;
+
+// 	assign replacement_word = (write_select1) ? write_out2 : write_out1;
+// endmodule
+
 //Data cache
 
 `define READ = 2'b01;
@@ -177,64 +220,68 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	parameter		WRITE = 3;
 	parameter 		READ_BUFFER = 4;
 
-	reg[1:0] 		states[2:0];
-	reg [31:0]		word_bufs[2:0];
-	wire [31:0]		read_bufs[2:0];
-	reg [31:0]		write_data_buffers[2:0];
-	wire [31:0]		replacement_words[2:0];
-	reg [31:0]		addr_bufs[2:0];
-	reg [3:0]		sign_mask_bufs[2:0];
-	reg [31:0]		data_block[0:1023];
-	reg [2:0]		memread_bufs;
-	reg [2:0]		memwrite_bufs;
+	reg[1:0] 		states[1:0];
+	reg [31:0]		word_bufs[1:0];
+	wire [31:0]		read_bufs[1:0];
+	reg [31:0]		write_data_buffers[1:0];
+	wire [31:0]		replacement_words[1:0];
+	reg [31:0]		addr_bufs[1:0];
+	reg [3:0]		sign_mask_bufs[1:0];
+	reg [31:0]		data_block[0:127];
+	reg [1:0]		memread_bufs;
+	reg [1:0]		memwrite_bufs;
 
-	integer i;
+	// integer i;
 
-	read_logic rl0(
+	mem_logic rl0(
 		.clk(clk),
 		.addr_buf(addr_bufs[0]),
 		.sign_mask_buf(sign_mask_bufs[0]),
 		.word_buf(word_bufs[0]),
-		.read_buf(read_bufs[0])
+		.read_buf(read_bufs[0]),
+		.write_data_buffer(write_data_buffers[0]),
+		.replacement_word(replacement_words[0])
 	);
-	read_logic rl1(
+	mem_logic rl1(
 		.clk(clk),
 		.addr_buf(addr_bufs[1]),
 		.sign_mask_buf(sign_mask_bufs[1]),
 		.word_buf(word_bufs[1]),
-		.read_buf(read_bufs[1])
-	);
-	read_logic rl2(
-		.clk(clk),
-		.addr_buf(addr_bufs[2]),
-		.sign_mask_buf(sign_mask_bufs[2]),
-		.word_buf(word_bufs[2]),
-		.read_buf(read_bufs[2])
-	);
-	write_logic wl0(
-		.clk(clk),
-		.addr_buf(addr_bufs[0]),
-		.sign_mask_buf(sign_mask_bufs[0]),
-		.word_buf(word_bufs[0]),
-		.write_data_buffer(write_data_buffers[0]),
-		.replacement_word(replacement_words[0])
-	);
-	write_logic wl1(
-		.clk(clk),
-		.addr_buf(addr_bufs[1]),
-		.sign_mask_buf(sign_mask_bufs[1]),
-		.word_buf(word_bufs[0]),
+		.read_buf(read_bufs[1]),
 		.write_data_buffer(write_data_buffers[1]),
 		.replacement_word(replacement_words[1])
 	);
-	write_logic wl2(
-		.clk(clk),
-		.addr_buf(addr_bufs[2]),
-		.sign_mask_buf(sign_mask_bufs[2]),
-		.word_buf(word_bufs[0]),
-		.write_data_buffer(write_data_buffers[2]),
-		.replacement_word(replacement_words[2])
-	);
+	// read_logic rl2(
+	// 	.clk(clk),
+	// 	.addr_buf(addr_bufs[2]),
+	// 	.sign_mask_buf(sign_mask_bufs[2]),
+	// 	.word_buf(word_bufs[2]),
+	// 	.read_buf(read_bufs[2])
+	// );
+	// write_logic wl0(
+	// 	.clk(clk),
+	// 	.addr_buf(addr_bufs[0]),
+	// 	.sign_mask_buf(sign_mask_bufs[0]),
+	// 	.word_buf(word_bufs[0]),
+	// 	.write_data_buffer(write_data_buffers[0]),
+	// 	.replacement_word(replacement_words[0])
+	// );
+	// write_logic wl1(
+	// 	.clk(clk),
+	// 	.addr_buf(addr_bufs[1]),
+	// 	.sign_mask_buf(sign_mask_bufs[1]),
+	// 	.word_buf(word_bufs[1]),
+	// 	.write_data_buffer(write_data_buffers[1]),
+	// 	.replacement_word(replacement_words[1])
+	// );
+	// write_logic wl2(
+	// 	.clk(clk),
+	// 	.addr_buf(addr_bufs[2]),
+	// 	.sign_mask_buf(sign_mask_bufs[2]),
+	// 	.word_buf(word_bufs[0]),
+	// 	.write_data_buffer(write_data_buffers[2]),
+	// 	.replacement_word(replacement_words[2])
+	// );
 
 
 	initial begin
@@ -291,26 +338,27 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 				states[1] <= IDLE;
 			end
 		endcase
-		case(states[2]) 
-			READ_BUFFER:  begin
-				word_bufs[2] <= data_block[addr_bufs[2][11:2] - 32'h1000];
-				if (memread_bufs[2]) begin
-					states[2] <= READ;
-				end
-				if (memwrite_bufs[2]) begin 
-					states[2] <= WRITE;
-				end
-			end
-			READ: begin
-				read_data <= read_bufs[2];
-				states[2] <= IDLE;
-			end
 
-			WRITE: begin
-				data_block[addr_bufs[2][11:2] - 32'h1000] <= replacement_words[2];
-				states[2] <= IDLE;
-			end
-		endcase
+		// case(states[2]) 
+		// 	READ_BUFFER:  begin
+		// 		word_bufs[2] <= data_block[addr_bufs[2][11:2] - 32'h1000];
+		// 		if (memread_bufs[2]) begin
+		// 			states[2] <= READ;
+		// 		end
+		// 		if (memwrite_bufs[2]) begin 
+		// 			states[2] <= WRITE;
+		// 		end
+		// 	end
+		// 	READ: begin
+		// 		read_data <= read_bufs[2];
+		// 		states[2] <= IDLE;
+		// 	end
+
+		// 	WRITE: begin
+		// 		data_block[addr_bufs[2][11:2] - 32'h1000] <= replacement_words[2];
+		// 		states[2] <= IDLE;
+		// 	end
+		// endcase
 
 		// for (i=0; i<3; i=i+1) begin
 		// 	case(states[i]) 
@@ -346,7 +394,7 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 				sign_mask_bufs[0] <= sign_mask;
 				states[0] <= READ_BUFFER;
 			end 
-			else if (states[1] == IDLE) begin 
+			if (states[1] == IDLE) begin 
 				memread_bufs[1] <= memread;
 				memwrite_bufs[1] <= memwrite;
 				write_data_buffers[1] <= write_data;
@@ -354,14 +402,14 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 				sign_mask_bufs[1] <= sign_mask;
 				states[1] <= READ_BUFFER;
 			end 
-			else if (states[2] == IDLE) begin 
-				memread_bufs[2] <= memread;
-				memwrite_bufs[2] <= memwrite;
-				write_data_buffers[2] <= write_data;
-				addr_bufs[2] <= addr;
-				sign_mask_bufs[2] <= sign_mask;
-				states[2] <= READ_BUFFER;
-			end
+			// else if (states[2] == IDLE) begin 
+			// 	memread_bufs[2] <= memread;
+			// 	memwrite_bufs[2] <= memwrite;
+			// 	write_data_buffers[2] <= write_data;
+			// 	addr_bufs[2] <= addr;
+			// 	sign_mask_bufs[2] <= sign_mask;
+			// 	states[2] <= READ_BUFFER;
+			// end
 		end
 
 
