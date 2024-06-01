@@ -234,6 +234,27 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 		end
 	end
 
+	// always @(posedge clk) begin
+	// 	if (memread_buf == 1'b1) begin 
+	// 		read_data <= read_buf;
+	// 	end
+	// 	if (memwrite_buf == 1'b1) begin 
+	// 		data_block[addr_buf_block_addr - 32'h1000] <= replacement_word;
+	// 	end
+
+	// 	memread_buf <= memread;
+	// 	memwrite_buf <= memwrite;
+	// 	write_data_buffer <= write_data;
+	// 	addr_buf <= addr;
+	// 	sign_mask_buf <= sign_mask;
+
+	// 	if (memread | memwrite) begin 
+	// 		clk_stall <= 1;
+	// 	end
+
+	// 	word_buf <= data_block[addr_buf_block_addr - 32'h1000];
+	// end
+
 	/*
 	 *	State machine
 	 */
@@ -248,14 +269,19 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 				sign_mask_buf <= sign_mask;
 				word_buf <= data_block[addr_buf_block_addr - 32'h1000];
 
-				if (memread==1'b1) begin 
-					state <= READ;
+				if (memread | memwrite) begin 
+					state <= READ_BUFFER;
 					clk_stall <= 1;
 				end
+			end
 
-				if (memwrite==1'b1) begin 
+			// stall for one cycle
+			READ_BUFFER:  begin
+				if (memread_buf) begin
+					state <= READ;
+				end
+				if (memwrite_buf) begin 
 					state <= WRITE;
-					clk_stall <= 1;
 				end
 			end
 
