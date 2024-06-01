@@ -34,162 +34,19 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
-//Data cache
-
-`define READ = 2'b01;
-`define WRITE = 2'b10;
-`define NONE = 2'b00;
-
-module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data, led, clk_stall);
+module read_logic(clk, addr_buf, sign_mask_buf, word_buf, read_buf);
 	input				clk;
-	input [31:0]		addr;
-	input [31:0]		write_data;
-	input				memwrite;
-	input				memread;
-	input [3:0]			sign_mask;
-	output reg [31:0]	read_data;
-	output [7:0]		led;
-	output reg			clk_stall;	//Sets the clock high
+	input [31:0] 		addr_buf;
+	input [3:0]			sign_mask_buf;
+	input [31:0]		word_buf;
 
-	/*
-	 *	led register
-	 */
-	reg [31:0]		led_reg;
+	output wire [31:0]	read_buf;
 
-	/*
-	 *	Current state
-	 */
-	integer			state = 0;
-
-	/*
-	 *	Possible states
-	 */
-	parameter		IDLE = 0;
-	parameter		READ_BUFFER = 1;
-	parameter		READ = 2;
-	parameter		WRITE = 3;
-
-	reg[1:0] 		states[2:0];
-
-	/*
-	 *	Line buffer
-	 */
-	reg [31:0]		word_buf;
-
-	/*
-	 *	Read buffer
-	 */
-	wire [31:0]		read_buf;
-
-	/*
-	 *	Buffer to identify read or write operation
-	 */
-	reg			memread_buf;
-	reg			memwrite_buf;
-
-	/*
-	 *	Buffers to store write data
-	 */
-	reg [31:0]		write_data_buffer;
-
-	/*
-	 *	Buffer to store address
-	 */
-	reg [31:0]		addr_buf;
-
-	/*
-	 *	Sign_mask buffer
-	 */
-	reg [3:0]		sign_mask_buf;
-
-	/*
-	 *	Block memory registers
-	 *
-	 *	(Bad practice: The constant for the size should be a `define).
-	 */
-	reg [31:0]		data_block[0:1023];
-
-	/*
-	 *	wire assignments
-	 */
 	wire [9:0]		addr_buf_block_addr;
 	wire [1:0]		addr_buf_byte_offset;
 
-	wire [31:0]		replacement_word;
-
 	assign			addr_buf_block_addr	= addr_buf[11:2];
 	assign			addr_buf_byte_offset	= addr_buf[1:0];
-
-	/*
-	 *	Regs for multiplexer output
-	 */
-	wire [7:0]		buf0;
-	wire [7:0]		buf1;
-	wire [7:0]		buf2;
-	wire [7:0]		buf3;
-
-	assign 			buf0	= word_buf[7:0];
-	assign 			buf1	= word_buf[15:8];
-	assign 			buf2	= word_buf[23:16];
-	assign 			buf3	= word_buf[31:24];
-
-	/*
-	 *	Byte select decoder
-	 */
-	wire bdec_sig0;
-	wire bdec_sig1;
-	wire bdec_sig2;
-	wire bdec_sig3;
-
-	assign bdec_sig0 = (~addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
-	assign bdec_sig1 = (~addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
-	assign bdec_sig2 = (addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
-	assign bdec_sig3 = (addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
-
-
-	/*
-	 *	Constructing the word to be replaced for write byte
-	 */
-	wire[7:0] byte_r0;
-	wire[7:0] byte_r1;
-	wire[7:0] byte_r2;
-	wire[7:0] byte_r3;
-
-	assign byte_r0 = (bdec_sig0==1'b1) ? write_data_buffer[7:0] : buf0;
-	assign byte_r1 = (bdec_sig1==1'b1) ? write_data_buffer[7:0] : buf1;
-	assign byte_r2 = (bdec_sig2==1'b1) ? write_data_buffer[7:0] : buf2;
-	assign byte_r3 = (bdec_sig3==1'b1) ? write_data_buffer[7:0] : buf3;
-
-	/*
-	 *	For write halfword
-	 */
-	wire[15:0] halfword_r0;
-	wire[15:0] halfword_r1;
-
-	assign halfword_r0 = (addr_buf_byte_offset[1]==1'b1) ? {buf1, buf0} : write_data_buffer[15:0];
-	assign halfword_r1 = (addr_buf_byte_offset[1]==1'b1) ? write_data_buffer[15:0] : {buf3, buf2};
-
-	/* a is sign_mask_buf[2], b is sign_mask_buf[1], c is sign_mask_buf[0] */
-	wire write_select0;
-	wire write_select1;
-
-	wire[31:0] write_out1;
-	wire[31:0] write_out2;
-
-	// halfword
-	assign write_select0 = ~sign_mask_buf[2] & sign_mask_buf[1];
-	// word
-	assign write_select1 = sign_mask_buf[2];
-
-	assign write_out1 = (write_select0) ? {halfword_r1, halfword_r0} : {byte_r3, byte_r2, byte_r1, byte_r0};
-	assign write_out2 = (write_select0) ? 32'b0 : write_data_buffer;
-
-	assign replacement_word = (write_select1) ? write_out2 : write_out1;
-	/*
-	 *	Combinatorial logic for generating 32-bit read data
-	 */
 
 	wire select0;
 	wire select1;
@@ -201,18 +58,21 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	wire[31:0] out4;
 	wire[31:0] out5;
 	wire[31:0] out6;
-	/* a is sign_mask_buf[2], b is sign_mask_buf[1], c is sign_mask_buf[0]
-	 * d is addr_buf_byte_offset[1], e is addr_buf_byte_offset[0]
-	 */
 
-	// (lb/sb & byte_offset = 0x1) | (lb/lh & byte_offset=0x3) | (lh/sh & byte_offset=0x3/0x2)
-	assign select0 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & ~addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & sign_mask_buf[1] & addr_buf_byte_offset[1]); //~a~b~de + ~ade + ~abd
-	// (lb/sb & byte_offset = 0x3/0x2) | lw/sw
-	assign select1 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & addr_buf_byte_offset[1]) | (sign_mask_buf[2] & sign_mask_buf[1]); // ~a~bd + ab
-	// halfword or word
-	assign select2 = sign_mask_buf[1]; //b
+	wire [7:0]		buf0;
+	wire [7:0]		buf1;
+	wire [7:0]		buf2;
+	wire [7:0]		buf3;
 
-	// sign_mask_buf[3] is lbu/lhu
+	assign 			buf0	= word_buf[7:0];
+	assign 			buf1	= word_buf[15:8];
+	assign 			buf2	= word_buf[23:16];
+	assign 			buf3	= word_buf[31:24];
+
+	assign select0 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & ~addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & addr_buf_byte_offset[1] & addr_buf_byte_offset[0]) | (~sign_mask_buf[2] & sign_mask_buf[1] & addr_buf_byte_offset[1]);
+	assign select1 = (~sign_mask_buf[2] & ~sign_mask_buf[1] & addr_buf_byte_offset[1]) | (sign_mask_buf[2] & sign_mask_buf[1]); 
+	assign select2 = sign_mask_buf[1];
+
 	assign out1 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{24{buf1[7]}}, buf1} : {24'b0, buf1}) : ((sign_mask_buf[3]==1'b1) ? {{24{buf0[7]}}, buf0} : {24'b0, buf0});
 	assign out2 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{24{buf3[7]}}, buf3} : {24'b0, buf3}) : ((sign_mask_buf[3]==1'b1) ? {{24{buf2[7]}}, buf2} : {24'b0, buf2});
 	assign out3 = (select0) ? ((sign_mask_buf[3]==1'b1) ? {{16{buf3[7]}}, buf3, buf2} : {16'b0, buf3, buf2}) : ((sign_mask_buf[3]==1'b1) ? {{16{buf1[7]}}, buf1, buf0} : {16'b0, buf1, buf0});
@@ -222,19 +82,163 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 	assign out6 = (select1) ? out4 : out3;
 
 	assign read_buf = (select2) ? out6 : out5;
+endmodule
+
+module write_logic(clk, addr_buf, sign_mask_buf, word_buf, write_data_buffer, replacement_word);
+	input				clk;
+	input [31:0] 		addr_buf;
+	input [3:0]			sign_mask_buf;
+	input [31:0]		write_data_buffer;
+	input [31:0]		word_buf;
+
+	output wire [31:0]	replacement_word;
+
+	wire [9:0]		addr_buf_block_addr;
+	wire [1:0]		addr_buf_byte_offset;
+
+	assign			addr_buf_block_addr	= addr_buf[11:2];
+	assign			addr_buf_byte_offset	= addr_buf[1:0];
+
+	wire [7:0]		buf0;
+	wire [7:0]		buf1;
+	wire [7:0]		buf2;
+	wire [7:0]		buf3;
+
+	assign 			buf0	= word_buf[7:0];
+	assign 			buf1	= word_buf[15:8];
+	assign 			buf2	= word_buf[23:16];
+	assign 			buf3	= word_buf[31:24];
+
+	wire bdec_sig0;
+	wire bdec_sig1;
+	wire bdec_sig2;
+	wire bdec_sig3;
+
+	assign bdec_sig0 = (~addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
+	assign bdec_sig1 = (~addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
+	assign bdec_sig2 = (addr_buf_byte_offset[1]) & (~addr_buf_byte_offset[0]);
+	assign bdec_sig3 = (addr_buf_byte_offset[1]) & (addr_buf_byte_offset[0]);
+
+	wire[7:0] byte_r0;
+	wire[7:0] byte_r1;
+	wire[7:0] byte_r2;
+	wire[7:0] byte_r3;
+
+	assign byte_r0 = (bdec_sig0==1'b1) ? write_data_buffer[7:0] : buf0;
+	assign byte_r1 = (bdec_sig1==1'b1) ? write_data_buffer[7:0] : buf1;
+	assign byte_r2 = (bdec_sig2==1'b1) ? write_data_buffer[7:0] : buf2;
+	assign byte_r3 = (bdec_sig3==1'b1) ? write_data_buffer[7:0] : buf3;
+
+	wire[15:0] halfword_r0;
+	wire[15:0] halfword_r1;
+
+	assign halfword_r0 = (addr_buf_byte_offset[1]==1'b1) ? {buf1, buf0} : write_data_buffer[15:0];
+	assign halfword_r1 = (addr_buf_byte_offset[1]==1'b1) ? write_data_buffer[15:0] : {buf3, buf2};
+
+
+	wire write_select0;
+	wire write_select1;
+
+	wire[31:0] write_out1;
+	wire[31:0] write_out2;
+
+	assign write_select0 = ~sign_mask_buf[2] & sign_mask_buf[1];
+	assign write_select1 = sign_mask_buf[2];
+
+	assign write_out1 = (write_select0) ? {halfword_r1, halfword_r0} : {byte_r3, byte_r2, byte_r1, byte_r0};
+	assign write_out2 = (write_select0) ? 32'b0 : write_data_buffer;
+
+	assign replacement_word = (write_select1) ? write_out2 : write_out1;
+endmodule
+
+//Data cache
+
+`define READ = 2'b01;
+`define WRITE = 2'b10;
+`define NONE = 2'b00;
+
+module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data, led);
+	input				clk;
+	input [31:0]		addr;
+	input [31:0]		write_data;
+	input				memwrite;
+	input				memread;
+	input [3:0]			sign_mask;
+	output reg [31:0]	read_data;
+	output [7:0]		led;
 
 	/*
-	 *	This uses Yosys's support for nonzero initial values:
-	 *
-	 *		https://github.com/YosysHQ/yosys/commit/0793f1b196df536975a044a4ce53025c81d00c7f
-	 *
-	 *	Rather than using this simulation construct (`initial`),
-	 *	the design should instead use a reset signal going to
-	 *	modules in the design.
+	 *	led register
 	 */
+	reg [31:0]		led_reg;
+
+	parameter		IDLE = 0;
+	parameter		READ = 2;
+	parameter		WRITE = 3;
+	parameter 		READ_BUFFER = 4;
+
+	reg[1:0] 		states[2:0];
+	reg [31:0]		word_bufs[2:0];
+	wire [31:0]		read_bufs[2:0];
+	reg [31:0]		write_data_buffers[2:0];
+	wire [31:0]		replacement_words[2:0];
+	reg [31:0]		addr_bufs[2:0];
+	reg [3:0]		sign_mask_bufs[2:0];
+	reg [31:0]		data_block[0:1023];
+	reg [2:0]		memread_bufs;
+	reg [2:0]		memwrite_bufs;
+
+	integer i;
+
+	read_logic rl0(
+		.clk(clk),
+		.addr_buf(addr_bufs[0]),
+		.sign_mask_buf(sign_mask_bufs[0]),
+		.word_buf(word_bufs[0]),
+		.read_buf(read_bufs[0])
+	);
+	read_logic rl1(
+		.clk(clk),
+		.addr_buf(addr_bufs[1]),
+		.sign_mask_buf(sign_mask_bufs[1]),
+		.word_buf(word_bufs[1]),
+		.read_buf(read_bufs[1])
+	);
+	read_logic rl2(
+		.clk(clk),
+		.addr_buf(addr_bufs[2]),
+		.sign_mask_buf(sign_mask_bufs[2]),
+		.word_buf(word_bufs[2]),
+		.read_buf(read_bufs[2])
+	);
+	write_logic wl0(
+		.clk(clk),
+		.addr_buf(addr_bufs[0]),
+		.sign_mask_buf(sign_mask_bufs[0]),
+		.word_buf(word_bufs[0]),
+		.write_data_buffer(write_data_buffers[0]),
+		.replacement_word(replacement_words[0])
+	);
+	write_logic wl1(
+		.clk(clk),
+		.addr_buf(addr_bufs[1]),
+		.sign_mask_buf(sign_mask_bufs[1]),
+		.word_buf(word_bufs[0]),
+		.write_data_buffer(write_data_buffers[1]),
+		.replacement_word(replacement_words[1])
+	);
+	write_logic wl2(
+		.clk(clk),
+		.addr_buf(addr_bufs[2]),
+		.sign_mask_buf(sign_mask_bufs[2]),
+		.word_buf(word_bufs[0]),
+		.write_data_buffer(write_data_buffers[2]),
+		.replacement_word(replacement_words[2])
+	);
+
+
 	initial begin
 		$readmemh("verilog/data.hex", data_block);
-		clk_stall = 0;
 	end
 
 	/*
@@ -246,57 +250,121 @@ module data_mem (clk, addr, write_data, memwrite, memread, sign_mask, read_data,
 		end
 	end
 
-	/*
-	 *	State machine
-	 */
 	always @(posedge clk) begin
-		case (state)
-			IDLE: begin
-				clk_stall <= 0;
-				memread_buf <= memread;
-				memwrite_buf <= memwrite;
-				write_data_buffer <= write_data;
-				addr_buf <= addr;
-				sign_mask_buf <= sign_mask;
-
-				if(memwrite==1'b1 || memread==1'b1) begin
-					state <= READ_BUFFER;
-					clk_stall <= 1;
+		case(states[0]) 
+			READ_BUFFER:  begin
+				word_bufs[0] <= data_block[addr_bufs[0][11:2] - 32'h1000];
+				if (memread_bufs[0]) begin
+					states[0] <= READ;
+				end
+				if (memwrite_bufs[0]) begin 
+					states[0] <= WRITE;
 				end
 			end
-
-			READ_BUFFER: begin
-				/*
-				 *	Subtract out the size of the instruction memory.
-				 *	(Bad practice: The constant should be a `define).
-				 */
-				word_buf <= data_block[addr_buf_block_addr - 32'h1000];
-				if(memread_buf==1'b1) begin
-					state <= READ;
-				end
-				else if(memwrite_buf == 1'b1) begin
-					state <= WRITE;
-				end
-			end
-
 			READ: begin
-				clk_stall <= 0;
-				read_data <= read_buf;
-				state <= IDLE;
+				read_data <= read_bufs[0];
+				states[0] <= IDLE;
 			end
 
 			WRITE: begin
-				clk_stall <= 0;
-
-				/*
-				 *	Subtract out the size of the instruction memory.
-				 *	(Bad practice: The constant should be a `define).
-				 */
-				data_block[addr_buf_block_addr - 32'h1000] <= replacement_word;
-				state <= IDLE;
+				data_block[addr_bufs[0][11:2] - 32'h1000] <= replacement_words[0];
+				states[0] <= IDLE;
+			end
+		endcase
+		case(states[1]) 
+			READ_BUFFER:  begin
+				word_bufs[1] <= data_block[addr_bufs[1][11:2] - 32'h1000];
+				if (memread_bufs[1]) begin
+					states[1] <= READ;
+				end
+				if (memwrite_bufs[1]) begin 
+					states[1] <= WRITE;
+				end
+			end
+			READ: begin
+				read_data <= read_bufs[1];
+				states[1] <= IDLE;
 			end
 
+			WRITE: begin
+				data_block[addr_bufs[1][11:2] - 32'h1000] <= replacement_words[1];
+				states[1] <= IDLE;
+			end
 		endcase
+		case(states[2]) 
+			READ_BUFFER:  begin
+				word_bufs[2] <= data_block[addr_bufs[2][11:2] - 32'h1000];
+				if (memread_bufs[2]) begin
+					states[2] <= READ;
+				end
+				if (memwrite_bufs[2]) begin 
+					states[2] <= WRITE;
+				end
+			end
+			READ: begin
+				read_data <= read_bufs[2];
+				states[2] <= IDLE;
+			end
+
+			WRITE: begin
+				data_block[addr_bufs[2][11:2] - 32'h1000] <= replacement_words[2];
+				states[2] <= IDLE;
+			end
+		endcase
+
+		// for (i=0; i<3; i=i+1) begin
+		// 	case(states[i]) 
+		// 		READ_BUFFER:  begin
+		// 			word_bufs[i] <= data_block[addr_bufs[i][11:2] - 32'h1000];
+		// 			if (memread_bufs[i]) begin
+		// 				states[i] <= READ;
+		// 			end
+		// 			if (memwrite_bufs[i]) begin 
+		// 				states[i] <= WRITE;
+		// 			end
+		// 		end
+		// 		READ: begin
+		// 			read_data <= read_bufs[i];
+		// 			states[i] <= IDLE;
+		// 		end
+
+		// 		WRITE: begin
+		// 			data_block[addr_bufs[i][11:2] - 32'h1000] <= replacement_words[i];
+		// 			states[i] <= IDLE;
+		// 		end
+				
+		// 	endcase
+		// end
+
+
+		if (memread | memwrite) begin 
+			if (states[0] == IDLE) begin 
+				memread_bufs[0] <= memread;
+				memwrite_bufs[0] <= memwrite;
+				write_data_buffers[0] <= write_data;
+				addr_bufs[0] <= addr;
+				sign_mask_bufs[0] <= sign_mask;
+				states[0] <= READ_BUFFER;
+			end 
+			else if (states[1] == IDLE) begin 
+				memread_bufs[1] <= memread;
+				memwrite_bufs[1] <= memwrite;
+				write_data_buffers[1] <= write_data;
+				addr_bufs[1] <= addr;
+				sign_mask_bufs[1] <= sign_mask;
+				states[1] <= READ_BUFFER;
+			end 
+			else if (states[2] == IDLE) begin 
+				memread_bufs[2] <= memread;
+				memwrite_bufs[2] <= memwrite;
+				write_data_buffers[2] <= write_data;
+				addr_bufs[2] <= addr;
+				sign_mask_bufs[2] <= sign_mask;
+				states[2] <= READ_BUFFER;
+			end
+		end
+
+
 	end
 
 	/*

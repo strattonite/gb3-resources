@@ -43,13 +43,10 @@
 
 module top (led);
 	output [7:0]	led;
-
-	wire		clk_proc;
-	wire		data_clk_stall;
 	
-	wire		clk;
-	reg		ENCLKHF		= 1'b1;	// Plock enable
-	reg		CLKHF_POWERUP	= 1'b1;	// Power up the HFOSC circuit
+	wire			clk;
+	reg				ENCLKHF		= 1'b1;	// Plock enable
+	reg				CLKHF_POWERUP	= 1'b1;	// Power up the HFOSC circuit
 
 
 	/*
@@ -99,9 +96,6 @@ module top (led);
 			.memread(data_memread), 
 			.read_data(data_out),
 			.sign_mask(data_sign_mask),
-			.led(led),
-			.clk_stall(data_clk_stall)
+			.led(led)
 		);
-
-	assign clk_proc = (data_clk_stall) ? 1'b1 : clk;
 endmodule
