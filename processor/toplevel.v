@@ -56,21 +56,21 @@ module top (led, clk_input);
 	 */
 	// set the clock frequency to 12 MHz 
 	// we don't use SB_HFOSC anymore
-	/*
+	
 	SB_HFOSC #(.CLKHF_DIV("0b10")) OSCInst0 (
 		.CLKHFEN(ENCLKHF),
 		.CLKHFPU(CLKHF_POWERUP),
 		.CLKHF(clk)
 	);
-	*/
+	
 
 	// Use PLL instead
 
-	pll pll_inst(
-			.clock_in(clk_input),
-			.clock_out(clk),
-			.locked(locked)
-	);
+	// pll pll_inst(
+	// 		.clock_in(clk_input),
+	// 		.clock_out(clk),
+	// 		.locked(locked)
+	// );
 
 	/*
 	 *	Memory interface
