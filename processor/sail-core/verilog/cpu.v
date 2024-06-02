@@ -98,6 +98,7 @@ module cpu(
 	wire			alu_branch_enable;
 	wire [31:0]		alu_result;
 	wire [31:0]		lui_result;
+	wire            alu_enable1;
 
 	/*
 	 *	Memory access stage
@@ -308,13 +309,24 @@ module cpu(
 			.out(alu_mux_out)
 		);
 
+
+	/*
+	memory instruction will certainly not involve arithmetic unit 
+	MemRead: It corresponds to bit 5 of cont_mux_out.
+	MemWrite: It corresponds to bit 4 of cont_mux_out.
+	id_ex_out = ....cont_mux_out[10:7], predict, cont_mux_out[6:0]
+	cont_mux_out = ... Jalr1, ALUSrc1, Lui1, Auipc1, Branch1, MemRead1, MemWrite1, CSRR_signal, RegWrite1, MemtoReg1, Jump1
+	*/
+
+
+	assign alu_enable1 = ~(cont_mux_out[4] | cont_mux_out[5]);
 	alu alu_main(
 			.ALUctl(id_ex_out[146:140]),
 			.A(wb_fwd1_mux_out),
 			.B(alu_mux_out),
 			.ALUOut(alu_result),
 			.Branch_Enable(alu_branch_enable),
-			.clk(clk)
+			.alu_enable(alu_enable1)
 		);
 
 	mux2to1 lui_mux(
