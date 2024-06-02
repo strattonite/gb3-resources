@@ -12,7 +12,7 @@ module top (led);
 	wire		clk_proc;
 	wire		data_clk_stall;
 	wire		clk;
-	wire        high_clk; 
+	//wire        high_clk; 
 	reg		ENCLKHF		= 1'b1;	// Plock enable
 	//reg		ENCLKLF		= 1'b1;	// Plock enable
 	reg		CLKHF_POWERUP	= 1'b1;	// Power up the HFOSC circuit
@@ -30,13 +30,14 @@ module top (led);
 	SB_HFOSC #(.CLKHF_DIV("0b11")) OSCInst0 (
 		.CLKHFEN(ENCLKHF),
 		.CLKHFPU(CLKHF_POWERUP),
-		.CLKHF(high_clk)
+		.CLKHF(clk)
 	);
-
+	/*
 	flipflopclk flipflopclk_inst(
         .hf_clk(high_clk),
         .clk(clk) // 1.5 MHz
     );
+	*/
 
 	/*
 	SB_LFOSC OSCInst1 (
