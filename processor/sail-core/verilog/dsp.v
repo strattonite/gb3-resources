@@ -62,8 +62,8 @@ defparam i_sbmac16_sum.NEG_TRIGGER = 1'b0; //detect rising edge
     SB_MAC16 i_sbmac16_sub(
         .A(a_in[31:16]),
         .B(a_in[15:0]),
-        .C(b_in[31:16]), 
-        .D(b_in[15:0]),
+        .C(~b_in[31:16]), 
+        .D(~b_in[15:0]),
         .O(sub),
         .CLK(clk), //clock
         .CE(1'b1), // clock enable
@@ -79,8 +79,8 @@ defparam i_sbmac16_sum.NEG_TRIGGER = 1'b0; //detect rising edge
         .OHOLDBOT(1'b0), //load bottom output
         .OLOADTOP(1'b0), //load top output
         .OLOADBOT(1'b0), //load bottom output
-        .ADDSUBTOP(1'b1), //1 for sub
-        .ADDSUBBOT(1'b1), //1 for sub
+        .ADDSUBTOP(1'b0), //1 for sub
+        .ADDSUBBOT(1'b0), //1 for sub
         .CO(), //carry out
         .CI(1'b0), //no carry in
         //MAC cascading ports.
@@ -94,7 +94,7 @@ defparam i_sbmac16_sum.NEG_TRIGGER = 1'b0; //detect rising edge
 defparam i_sbmac16_sub.B_SIGNED = 1'b0;
 defparam i_sbmac16_sub.A_SIGNED = 1'b0;
 defparam i_sbmac16_sub.MODE_8x8 = 1'b1; //1 for low power multiply disable
-defparam i_sbmac16_sub.BOTADDSUB_CARRYSELECT = 2'b00; //00 for 0 carry in
+defparam i_sbmac16_sub.BOTADDSUB_CARRYSELECT = 2'b01; //01 for 1 carry in for 2's complement
 defparam i_sbmac16_sub.BOTADDSUB_UPPERINPUT = 1'b1;// 1 for input from register D
 defparam i_sbmac16_sub.BOTADDSUB_LOWERINPUT = 2'b00;//00 for input from register B
 defparam i_sbmac16_sub.BOTOUTPUT_SELECT = 2'b00; //00 for output from lower add/sub

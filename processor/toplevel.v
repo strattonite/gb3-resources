@@ -6,7 +6,7 @@
  *	Top level entity, linking cpu with data and instruction memory.
  */
 
-module top (led);
+module top (led, clk_input);
 	output [7:0]	led;
 	//input		clk_input;
 	wire		clk_proc;
