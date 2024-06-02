@@ -125,7 +125,7 @@ module alu(ALUctl, A, B, ALUOut, Branch_Enable, alu_enable);
 			endcase
 		end
 		else begin
-			ALUOut = 32'b0; // Set to a constant value when alu_enable = 0
+			ALUOut = 0; // Set to a constant value when alu_enable = 0
 		end
 	end
 	
