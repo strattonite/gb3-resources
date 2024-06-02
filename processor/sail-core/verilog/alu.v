@@ -127,7 +127,8 @@ module alu(ALUctl, A, B, ALUOut, Branch_Enable, alu_enable);
 		else begin
 			ALUOut = 32'b0; // Set to a constant value when alu_enable = 0
 		end
-
+	end
+	
 	always @(ALUctl, ALUOut, A, B) begin
 		case (ALUctl[6:4])
 			`kSAIL_MICROARCHITECTURE_ALUCTL_6to4_BEQ:	Branch_Enable = (ALUOut == 0);

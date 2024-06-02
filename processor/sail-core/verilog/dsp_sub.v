@@ -1,4 +1,4 @@
-module dsp_subtractor(a_in, b_in, sub);
+module dsp_sub(a_in, b_in, sub);
     input [31:0] a_in;
     input [31:0] b_in;
     output [31:0] sub;
@@ -34,7 +34,7 @@ module dsp_subtractor(a_in, b_in, sub);
         .SIGNEXTOUT()
     );
 
-/ mult_8x8_all_pipelined_unsigned [24:0] = 001_0000010_0000010_0111_0110
+// mult_8x8_all_pipelined_unsigned [24:0] = 001_0000010_0000010_0111_0110
 // Read configuration settings [24:0] from left to right while filling the instance parameters.
 defparam i_sbmac16_sub.B_SIGNED = 1'b0;
 defparam i_sbmac16_sub.A_SIGNED = 1'b0;
