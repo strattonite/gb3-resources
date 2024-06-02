@@ -45,18 +45,15 @@
 
 
 
-module adder(input1, input2, out, clk);
+module adder(input1, input2, out);
 	input [31:0]	input1;
 	input [31:0]	input2;
-	input clk; //cynchronous clock
 	output [31:0]	out;
 
-    dsp_adder_subtractor dsp_inst(
+    dsp_add add_inst(
         .a_in(input1),
         .b_in(input2),
         .sum(out),
-        .sub(),
-        .clk(clk)
     );
 	
 endmodule

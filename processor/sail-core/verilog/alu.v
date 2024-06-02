@@ -18,23 +18,26 @@
  *	field is only unique across the instructions that are actually
  *	fed to the ALU.
  */
-module alu(ALUctl, A, B, ALUOut, Branch_Enable, clk);
+module alu(ALUctl, A, B, ALUOut, Branch_Enable);
 	input [6:0]		ALUctl;
 	input [31:0]		A;
 	input [31:0]		B;
-	input 			clk;
 	output reg [31:0]	ALUOut;
 	output reg		Branch_Enable;
 
 	wire [31:0] sum;
 	wire [31:0] sub;
 
-    dsp_adder_subtractor dsp_inst(
+    dsp_add add_inst(
         .a_in(A),
         .b_in(B),
         .sum(sum),
+    );
+
+    dsp_sub sub_inst(
+        .a_in(A),
+        .b_in(B),
         .sub(sub),
-        .clk(clk)
     );
 
 	/*
