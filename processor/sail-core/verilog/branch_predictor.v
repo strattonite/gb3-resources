@@ -108,6 +108,8 @@ module branch_predictor(
 		end
 	end
 
+	// can be offloaded to dsp
 	assign branch_addr = in_addr + offset;
 	assign prediction = s[1] & branch_decode_sig;
+	
 endmodule

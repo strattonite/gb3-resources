@@ -70,9 +70,11 @@ module regfile(clk, write, wrAddr, wrData, rdAddrA, rdDataA, rdAddrB, rdDataB);
 	 */
 	reg [31:0]	regDatA;
 	reg [31:0]	regDatB;
-	reg [31:0]	wrAddr_buf;
-	reg [31:0]	wrData_buf;
+	reg [4:0]	wrAddr_buf;
+	reg [4:0]	wrData_buf;
 	reg		write_buf;
+
+	wire wr_en;
 
 	/*
 	 *	The `initial` statement below uses Yosys's support for nonzero
@@ -88,12 +90,14 @@ module regfile(clk, write, wrAddr, wrData, rdAddrA, rdDataA, rdAddrB, rdDataB);
 	/*
 	 *	Sets register 0 to 0
 	 */
+
+	 
 	initial begin
 		regfile[0] = 32'b0;
 	end
 
 	always @(posedge clk) begin
-		if (write==1'b1 && wrAddr!=5'b0) begin
+		if (wr_en) begin
 			regfile[wrAddr] <= wrData;
 		end
 		wrAddr_buf	<= wrAddr;
@@ -103,8 +107,10 @@ module regfile(clk, write, wrAddr, wrData, rdAddrA, rdDataA, rdAddrB, rdDataB);
 		rdAddrB_buf	<= rdAddrB;
 		regDatA		<= regfile[rdAddrA];
 		regDatB		<= regfile[rdAddrB];
+		
 	end
 
-	assign	rdDataA = ((wrAddr_buf==rdAddrA_buf) & write_buf & wrAddr_buf!=32'b0) ? wrData_buf : regDatA;
-	assign	rdDataB = ((wrAddr_buf==rdAddrB_buf) & write_buf & wrAddr_buf!=32'b0) ? wrData_buf : regDatB;
+	assign	rdDataA = ((wrAddr_buf==rdAddrA_buf) & wr_en) ? wrData_buf : regDatA;
+	assign	rdDataB = ((wrAddr_buf==rdAddrB_buf) & wr_en) ? wrData_buf : regDatB;
+	
 endmodule

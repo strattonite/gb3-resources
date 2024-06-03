@@ -57,17 +57,23 @@ module control(
 
 	input	[6:0] opcode;
 	output	MemtoReg, RegWrite, MemWrite, MemRead, Branch, ALUSrc, Jump, Jalr, Lui, Auipc, Fence, CSRR;
+	
+	wire not3_2;
+	wire not5_not4;
 
-	assign MemtoReg = (~opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[0]);
-	assign RegWrite = ((~(opcode[4] | opcode[5])) | opcode[2] | opcode[4]) & opcode[0];
+	assign not3_2 = (~opcode[3]) & (opcode[2]);
+	assign not5_not4 = (~opcode[5]) & (~opcode[4]);
+
+	assign MemtoReg = not5_not4 & (~opcode[3]) & (opcode[0]);
+	assign RegWrite = (not5_not4 | opcode[2] | opcode[4]) & opcode[0]; //
 	assign MemWrite = (~opcode[6]) & (opcode[5]) & (~opcode[4]);
 	assign MemRead = (~opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[1]);
 	assign Branch = (opcode[6]) & (~opcode[4]) & (~opcode[2]);
 	assign ALUSrc = ~(opcode[6] | opcode[4]) | (~opcode[5]);
 	assign Jump = (opcode[6]) & (opcode[5]) & (~opcode[4]) & (opcode[2]);
-	assign Jalr = (opcode[6]) & (opcode[5]) & (~opcode[4]) & (~opcode[3]) & (opcode[2]);
-	assign Lui = (~opcode[6]) & (opcode[5]) & (opcode[4]) & (~opcode[3]) & (opcode[2]);
-	assign Auipc = (~opcode[6]) & (~opcode[5]) & (opcode[4]) & (~opcode[3]) & (opcode[2]);
+	assign Jalr = (opcode[6]) & (opcode[5]) & (~opcode[4]) & not3_2; //
+	assign Lui = (~opcode[6]) & (opcode[5]) & (opcode[4]) & not3_2; //
+	assign Auipc = (~opcode[6]) & (~opcode[5]) & (opcode[4]) & not3_2; //
 	assign Fence = (~opcode[5]) & opcode[3] & (opcode[2]);
 	assign CSRR = (opcode[6]) & (opcode[4]);
 endmodule
