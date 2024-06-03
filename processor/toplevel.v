@@ -44,21 +44,32 @@
 module top (led);
 	output [7:0]	led;
 
-	wire		clk_proc;
-	wire		data_clk_stall;
+	wire 		data_clk;
 	
-	wire		clk;
+	reg		clk;
 	reg		ENCLKHF		= 1'b1;	// Plock enable
 	reg		CLKHF_POWERUP	= 1'b1;	// Power up the HFOSC circuit
 
+	initial begin 
+		clk <= 0;
+	end
+
+	always @(posedge data_clk) begin 
+		clk <= ~clk;
+	end
 
 	/*
 	 *	Use the iCE40's hard primitive for the clock source.
 	 */
-	SB_HFOSC #(.CLKHF_DIV("0b11")) OSCInst0 (
+	// SB_HFOSC #(.CLKHF_DIV("0b11")) OSCInst0 (
+	// 	.CLKHFEN(ENCLKHF),
+	// 	.CLKHFPU(CLKHF_POWERUP),
+	// 	.CLKHF(clk)
+	// );
+	SB_HFOSC #(.CLKHF_DIV("0b10")) DataClock (
 		.CLKHFEN(ENCLKHF),
 		.CLKHFPU(CLKHF_POWERUP),
-		.CLKHF(clk)
+		.CLKHF(data_clk)
 	);
 
 	/*
@@ -75,7 +86,7 @@ module top (led);
 
 
 	cpu processor(
-		.clk(clk_proc),
+		.clk(clk),
 		.inst_mem_in(inst_in),
 		.inst_mem_out(inst_out),
 		.data_mem_out(data_out),
@@ -92,16 +103,13 @@ module top (led);
 	);
 
 	data_mem data_mem_inst(
-			.clk(clk),
+			.clk(data_clk),
 			.addr(data_addr),
 			.write_data(data_WrData),
 			.memwrite(data_memwrite), 
 			.memread(data_memread), 
 			.read_data(data_out),
 			.sign_mask(data_sign_mask),
-			.led(led),
-			.clk_stall(data_clk_stall)
+			.led(led)
 		);
-
-	assign clk_proc = (data_clk_stall) ? 1'b1 : clk;
 endmodule
