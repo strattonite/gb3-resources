@@ -50,5 +50,10 @@ module adder(input1, input2, out);
 	input [31:0]	input2;
 	output [31:0]	out;
 
-	assign		out = input1 + input2;
+    dsp_add add_inst(
+        .a_in(input1),
+        .b_in(input2),
+        .sum(out)
+    );
+	
 endmodule
